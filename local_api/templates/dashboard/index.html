@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="pt-br" class="antialiased">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Inventory Intelligence | Dashboard</title>
+
+    <script src="/static/dashboard/tailwind.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            850: '#1e293b', // Tom específico para cards escuros
+                            900: '#0f172a', // Fundo escuro
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+
+        /* Scrollbar Clean */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        /* Skeleton Loading */
+        .skeleton {
+            background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 37%, #e2e8f0 63%);
+            background-size: 400% 100%;
+            animation: skeleton-loading 1.4s ease infinite;
+        }
+
+        .dark .skeleton {
+            background: linear-gradient(90deg, #1e293b 25%, #334155 37%, #1e293b 63%);
+        }
+
+        @keyframes skeleton-loading {
+            0% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0 50%;
+            }
+        }
+
+        /* Toggle Switch Animation */
+        .toggle-checkbox:checked {
+            transform: translateX(100%);
+            border-color: #2563eb;
+        }
+
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #2563eb;
+        }
+
+        /* Fade In Animation */
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Esconder setas padrões do input number */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark')
+        } else {
+            document.documentElement.classList.remove('dark')
+        }
+    </script>
+</head>
+<body class="text-slate-800 dark:text-slate-100 h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+
+<!-- HEADER -->
+<header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 h-16 flex-none z-20 shadow-sm relative transition-colors duration-300">
+    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
+
+        <!-- Brand -->
+        <div class="flex items-center gap-3">
+            <div class="bg-blue-600 text-white p-1.5 rounded-lg shadow-sm">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                </svg>
+            </div>
+            <div class="leading-tight">
+                <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">Inventory Intelligence</h1>
+                <p class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Gestão
+                    Inteligente</p>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="flex items-center gap-4 sm:gap-6">
+
+            <!-- Engine Config (NEW) -->
+            <div class="hidden md:flex items-center gap-2 bg-slate-50 dark:bg-slate-700/30 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600">
+                <div class="flex flex-col leading-none mr-1">
+                    <span class="text-[9px] font-bold text-slate-400 uppercase">Modo de Operação</span>
+                </div>
+                <select id="engine-profile-select"
+                        class="text-xs font-medium border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded text-slate-700 dark:text-slate-200 focus:ring-blue-500 focus:border-blue-500 outline-none py-1 px-2 cursor-pointer h-7 transition-opacity disabled:opacity-50">
+                    <option value="conservative">Mais Seguro (Estoque Maior)</option>
+                    <option value="balanced">Equilibrado</option>
+                    <option value="aggressive">Mais Enxuto (Estoque Menor)</option>
+                </select>
+                <button id="btn-open-advanced-config"
+                        class="ml-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-600"
+                        title="Ajustes Finos">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Theme Toggle -->
+            <button id="theme-toggle"
+                    class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-all">
+                <svg id="theme-toggle-light-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor"
+                     viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                </svg>
+                <svg id="theme-toggle-dark-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor"
+                     viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                </svg>
+            </button>
+
+            <!-- Base Zero Toggle -->
+            <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-700/50 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-600 transition-colors">
+                <span class="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Base Zero</span>
+                <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                    <input type="checkbox" name="toggle" id="baseZeroToggle"
+                           class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-300 transition-all duration-300 ease-in-out top-0 left-0"/>
+                    <label for="baseZeroToggle"
+                           class="toggle-label block overflow-hidden h-5 rounded-full bg-slate-300 dark:bg-slate-500 cursor-pointer transition-colors duration-300"></label>
+                </div>
+            </div>
+
+            <!-- Ignored/Ghost Toggle -->
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-600 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer group">
+                <label for="showIgnoredToggle" class="relative flex items-center cursor-pointer">
+                    <input type="checkbox" id="showIgnoredToggle" class="peer hidden"/>
+                    <div class="w-9 h-5 bg-slate-300 rounded-full peer-focus:outline-none dark:bg-slate-600 peer-checked:bg-purple-600 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+                </label>
+                <label for="showIgnoredToggle"
+                       class="text-xs font-semibold text-slate-500 dark:text-slate-400 group-hover:text-purple-600 transition-colors cursor-pointer select-none uppercase tracking-wide">
+                    Lixeira
+                </label>
+            </div>
+
+            <!-- Refresh & Status -->
+            <div class="flex items-center gap-4 border-l border-slate-100 dark:border-slate-700 pl-4">
+                <button id="refresh-btn"
+                        class="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-full transition-all active:scale-95"
+                        title="Atualizar Agora">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                </button>
+                <div class="text-right block">
+                    <div class="flex items-center justify-end gap-2 text-xs text-slate-400 mb-0.5">
+                        <span id="last-updated" class="font-mono font-medium text-slate-600 dark:text-slate-400">--:--:--</span>
+                    </div>
+                    <div class="flex items-center justify-end gap-1.5">
+                        <span id="status-dot" class="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                        <span id="status-text"
+                              class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">...</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</header>
+
+<!-- MAIN CONTENT -->
+<main class="flex-1 overflow-y-auto bg-slate-50/50 dark:bg-slate-900/50 p-4 sm:p-6 lg:p-8 transition-colors duration-300">
+    <div class="max-w-[1600px] mx-auto space-y-8">
+
+        <!-- Metrics Cards -->
+        <section id="metrics-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="h-24 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-4 skeleton"></div>
+            <div class="h-24 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-4 skeleton"></div>
+            <div class="h-24 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-4 skeleton"></div>
+            <div class="h-24 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-4 skeleton"></div>
+        </section>
+
+        <!-- Columns -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full items-start">
+
+            <!-- Purchasing -->
+            <div class="flex flex-col gap-4 min-h-[500px]">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                    <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                        <span class="text-blue-600 dark:text-blue-400 w-5 h-5"></span> Compras & Reposição
+                    </h2>
+                    <span id="count-purchasing"
+                          class="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                </div>
+                <div class="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-2 shadow-sm space-y-2 transition-colors">
+                    <div class="flex gap-1">
+                        <button data-filter-priority="all"
+                                class="filter-btn-prio flex-1 text-[10px] font-bold uppercase py-1.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 ring-2 ring-blue-200 dark:ring-blue-800 transition">
+                            Todos
+                        </button>
+                        <button data-filter-priority="urgent"
+                                class="filter-btn-prio flex-1 text-[10px] font-bold uppercase py-1.5 rounded text-slate-500 dark:text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-300 transition">
+                            Urgente
+                        </button>
+                        <button data-filter-priority="plan"
+                                class="filter-btn-prio flex-1 text-[10px] font-bold uppercase py-1.5 rounded text-slate-500 dark:text-slate-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:text-amber-600 dark:hover:text-amber-300 transition">
+                            Planejar
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-2 border-t border-slate-100 dark:border-slate-700 pt-2">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase ml-1">Tipo:</span>
+                        <select id="filter-type-select"
+                                class="flex-1 text-xs border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 rounded text-slate-600 dark:text-slate-300 focus:ring-blue-500 focus:border-blue-500 outline-none p-1.5">
+                            <option value="all">Todos os itens</option>
+                            <option value="product">Produtos de Revenda</option>
+                            <option value="ingredient">Ingredientes / MP</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="todo-purchasing" class="space-y-3 flex-1 overflow-y-auto pr-1 custom-scroll pb-10">
+                    <div class="h-24 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 skeleton"></div>
+                    <div class="h-24 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 skeleton"></div>
+                </div>
+            </div>
+
+            <!-- Kitchen -->
+            <div class="flex flex-col gap-4 min-h-[500px]">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                    <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                        <span class="text-orange-600 dark:text-orange-400 w-5 h-5"></span> Cozinha & Produção
+                    </h2>
+                    <span id="count-kitchen"
+                          class="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                </div>
+                <div id="todo-kitchen" class="space-y-3 flex-1 overflow-y-auto pr-1 custom-scroll pb-10">
+                    <div class="h-24 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 skeleton"></div>
+                </div>
+            </div>
+
+            <!-- Management -->
+            <div class="flex flex-col gap-4 min-h-[500px]">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                    <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                        <span class="text-purple-600 dark:text-purple-400 w-5 h-5"></span> Gestão & Qualidade
+                    </h2>
+                    <span id="count-management"
+                          class="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                </div>
+                <div id="todo-management" class="space-y-3 flex-1 overflow-y-auto pr-1 custom-scroll pb-10">
+                    <div class="h-24 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 skeleton"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</main>
+
+<!-- CONFIG MODAL (UX Gestor) -->
+<div id="engine-config-modal"
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden transition-opacity duration-300">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl p-0 border border-slate-200 dark:border-slate-700 relative transform transition-all scale-100 overflow-hidden flex flex-col max-h-[90vh]">
+
+        <!-- Header Modal -->
+        <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+            <div>
+                <h3 class="text-lg font-bold text-slate-800 dark:text-white">Ajustes de Operação</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Personalize como o sistema toma decisões de compra
+                    e alerta.</p>
+            </div>
+            <button id="btn-close-config"
+                    class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Body Scrollable -->
+        <form id="engine-config-form" class="overflow-y-auto p-6 space-y-8 custom-scroll">
+
+            <!-- Seção 1: Cobertura de Estoque -->
+            <div class="space-y-4">
+                <div class="flex items-center gap-2 mb-2">
+                    <div class="p-1.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg text-blue-600 dark:text-blue-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                        </svg>
+                    </div>
+                    <h4 class="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">Meta de
+                        Estoque (Cobertura)</h4>
+                </div>
+
+                <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed -mt-2 mb-4">
+                    Quantos dias de vendas você quer garantir ter em estoque? Isso define o tamanho da sua despensa.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Classe A -->
+                    <div class="bg-slate-50 dark:bg-slate-700/30 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                        <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">Itens de Alto
+                            Giro (A)</label>
+                        <div class="flex items-center gap-2">
+                            <button type="button"
+                                    class="btn-adjust w-8 h-8 rounded-full bg-white dark:bg-slate-600 shadow-sm border border-slate-200 dark:border-slate-500 flex items-center justify-center text-slate-600 dark:text-slate-200 hover:bg-slate-50 active:scale-95"
+                                    data-target="coverage_days_target_A" data-step="-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M20 12H4"></path>
+                                </svg>
+                            </button>
+                            <input type="number" name="coverage_days_target_A"
+                                   class="w-full text-center font-mono font-bold text-lg bg-transparent outline-none text-slate-800 dark:text-white"
+                                   readonly>
+                            <button type="button"
+                                    class="btn-adjust w-8 h-8 rounded-full bg-white dark:bg-slate-600 shadow-sm border border-slate-200 dark:border-slate-500 flex items-center justify-center text-slate-600 dark:text-slate-200 hover:bg-slate-50 active:scale-95"
+                                    data-target="coverage_days_target_A" data-step="1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M12 4v16m8-8H4"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="text-center mt-1 text-[10px] text-slate-400 uppercase font-bold">DIAS</div>
+                    </div>
+
+                    <!-- Classe B -->
+                    <div class="bg-slate-50 dark:bg-slate-700/30 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                        <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">Giro Médio
+                            (B)</label>
+                        <div class="flex items-center gap-2">
+                            <button type="button"
+                                    class="btn-adjust w-8 h-8 rounded-full bg-white dark:bg-slate-600 shadow-sm border border-slate-200 dark:border-slate-500 flex items-center justify-center text-slate-600 dark:text-slate-200 hover:bg-slate-50 active:scale-95"
+                                    data-target="coverage_days_target_B" data-step="-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M20 12H4"></path>
+                                </svg>
+                            </button>
+                            <input type="number" name="coverage_days_target_B"
+                                   class="w-full text-center font-mono font-bold text-lg bg-transparent outline-none text-slate-800 dark:text-white"
+                                   readonly>
+                            <button type="button"
+                                    class="btn-adjust w-8 h-8 rounded-full bg-white dark:bg-slate-600 shadow-sm border border-slate-200 dark:border-slate-500 flex items-center justify-center text-slate-600 dark:text-slate-200 hover:bg-slate-50 active:scale-95"
+                                    data-target="coverage_days_target_B" data-step="1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M12 4v16m8-8H4"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="text-center mt-1 text-[10px] text-slate-400 uppercase font-bold">DIAS</div>
+                    </div>
+
+                    <!-- Classe C -->
+                    <div class="bg-slate-50 dark:bg-slate-700/30 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                        <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">Giro Baixo
+                            (C)</label>
+                        <div class="flex items-center gap-2">
+                            <button type="button"
+                                    class="btn-adjust w-8 h-8 rounded-full bg-white dark:bg-slate-600 shadow-sm border border-slate-200 dark:border-slate-500 flex items-center justify-center text-slate-600 dark:text-slate-200 hover:bg-slate-50 active:scale-95"
+                                    data-target="coverage_days_target_C" data-step="-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M20 12H4"></path>
+                                </svg>
+                            </button>
+                            <input type="number" name="coverage_days_target_C"
+                                   class="w-full text-center font-mono font-bold text-lg bg-transparent outline-none text-slate-800 dark:text-white"
+                                   readonly>
+                            <button type="button"
+                                    class="btn-adjust w-8 h-8 rounded-full bg-white dark:bg-slate-600 shadow-sm border border-slate-200 dark:border-slate-500 flex items-center justify-center text-slate-600 dark:text-slate-200 hover:bg-slate-50 active:scale-95"
+                                    data-target="coverage_days_target_C" data-step="1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M12 4v16m8-8H4"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="text-center mt-1 text-[10px] text-slate-400 uppercase font-bold">DIAS</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="h-px bg-slate-100 dark:bg-slate-700 w-full"></div>
+
+            <!-- Seção 2: Comportamento e Risco -->
+            <div class="space-y-4">
+                <div class="flex items-center gap-2 mb-2">
+                    <div class="p-1.5 bg-amber-100 dark:bg-amber-900/50 rounded-lg text-amber-600 dark:text-amber-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </div>
+                    <h4 class="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">Risco &
+                        Fornecedores</h4>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Validade -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Alerta de
+                            Validade</label>
+                        <p class="text-[10px] text-slate-400 mb-2">Avisar quando faltar X dias para vencer.</p>
+                        <div class="flex items-center gap-2">
+                            <button type="button"
+                                    class="btn-adjust w-8 h-8 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300"
+                                    data-target="perishable_risk_threshold_days" data-step="-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M20 12H4"></path>
+                                </svg>
+                            </button>
+                            <input type="number" name="perishable_risk_threshold_days"
+                                   class="flex-1 text-center text-sm bg-transparent border border-slate-200 dark:border-slate-600 rounded py-1.5 font-bold text-slate-800 dark:text-slate-200"
+                                   readonly>
+                            <button type="button"
+                                    class="btn-adjust w-8 h-8 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300"
+                                    data-target="perishable_risk_threshold_days" data-step="1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M12 4v16m8-8H4"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Histórico de Vendas -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Histórico de
+                            Análise</label>
+                        <p class="text-[10px] text-slate-400 mb-2">Quantos dias passados usar para calcular a média.</p>
+                        <div class="flex items-center gap-2">
+                            <button type="button"
+                                    class="btn-adjust w-8 h-8 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300"
+                                    data-target="forecast_window_days" data-step="-5">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M20 12H4"></path>
+                                </svg>
+                            </button>
+                            <input type="number" name="forecast_window_days"
+                                   class="flex-1 text-center text-sm bg-transparent border border-slate-200 dark:border-slate-600 rounded py-1.5 font-bold text-slate-800 dark:text-slate-200"
+                                   readonly>
+                            <button type="button"
+                                    class="btn-adjust w-8 h-8 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300"
+                                    data-target="forecast_window_days" data-step="5">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M12 4v16m8-8H4"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Margem de Segurança (Fornecedor) -->
+                <div class="pt-2">
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">Segurança contra
+                        Atrasos de Fornecedor (Fator)</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Produtos Prontos</span>
+                            <div class="flex items-center gap-2">
+                                <button type="button"
+                                        class="btn-adjust w-8 h-8 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300"
+                                        data-target="supplier_variability_finished" data-step="-0.1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                              d="M20 12H4"></path>
+                                    </svg>
+                                </button>
+                                <input type="number" step="0.1" name="supplier_variability_finished"
+                                       class="flex-1 text-center text-sm bg-transparent border border-slate-200 dark:border-slate-600 rounded py-1.5 font-bold text-slate-800 dark:text-slate-200"
+                                       readonly>
+                                <button type="button"
+                                        class="btn-adjust w-8 h-8 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300"
+                                        data-target="supplier_variability_finished" data-step="0.1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                              d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Ingredientes</span>
+                            <div class="flex items-center gap-2">
+                                <button type="button"
+                                        class="btn-adjust w-8 h-8 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300"
+                                        data-target="supplier_variability_ingredient" data-step="-0.1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                              d="M20 12H4"></path>
+                                    </svg>
+                                </button>
+                                <input type="number" step="0.1" name="supplier_variability_ingredient"
+                                       class="flex-1 text-center text-sm bg-transparent border border-slate-200 dark:border-slate-600 rounded py-1.5 font-bold text-slate-800 dark:text-slate-200"
+                                       readonly>
+                                <button type="button"
+                                        class="btn-adjust w-8 h-8 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300"
+                                        data-target="supplier_variability_ingredient" data-step="0.1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                              d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-2">
+                        Ex: 1.5 significa que calculamos estoque assumindo que o fornecedor pode demorar 50% a mais que
+                        o normal.
+                    </p>
+                </div>
+            </div>
+        </form>
+
+        <!-- Footer -->
+        <div class="px-6 py-4 border-t border-slate-100 dark:border-slate-700 flex justify-end gap-3 bg-slate-50 dark:bg-slate-800/50">
+            <button type="button" id="btn-cancel-config"
+                    class="px-4 py-2 rounded-lg text-sm font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white transition-colors">
+                Cancelar
+            </button>
+            <button type="submit" form="engine-config-form"
+                    class="px-6 py-2 rounded-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg transition-all transform active:scale-95">
+                Salvar Alterações
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/dashboard/app.js"></script>
+<div id="toast-container"
+     class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
+</body>
+</html>

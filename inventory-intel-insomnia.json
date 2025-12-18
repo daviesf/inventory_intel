@@ -1,0 +1,78 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2025-12-01T12:00:00.000Z",
+  "__export_source": "inventory-intel",
+  "resources": [
+    {
+      "_id": "wrk_inventory_intel",
+      "_type": "workspace",
+      "name": "Inventory Intel - Local API",
+      "description": "Coleção de requests para a API local do Inventory Intel",
+      "scope": "collection"
+    },
+    {
+      "_id": "env_inventory_intel",
+      "_type": "environment",
+      "parentId": "wrk_inventory_intel",
+      "name": "Local",
+      "data": {
+        "base_url": "http://127.0.0.1:8000"
+      }
+    },
+    {
+      "_id": "fld_health",
+      "_type": "request_group",
+      "parentId": "wrk_inventory_intel",
+      "name": "Health"
+    },
+    {
+      "_id": "fld_alerts",
+      "_type": "request_group",
+      "parentId": "wrk_inventory_intel",
+      "name": "Alerts"
+    },
+    {
+      "_id": "req_health",
+      "_type": "request",
+      "parentId": "fld_health",
+      "name": "Health Check",
+      "method": "GET",
+      "url": "{{ _.base_url }}/health",
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
+      "_id": "req_alerts",
+      "_type": "request",
+      "parentId": "fld_alerts",
+      "name": "Get Alerts (modo normal)",
+      "method": "GET",
+      "url": "{{ _.base_url }}/alerts",
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
+      "_id": "req_alerts_ignore_stock",
+      "_type": "request",
+      "parentId": "fld_alerts",
+      "name": "Get Alerts (Base Zero Global)",
+      "method": "GET",
+      "url": "{{ _.base_url }}/alerts?ignore_stock_balance=true",
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ]
+    }
+  ]
+}
