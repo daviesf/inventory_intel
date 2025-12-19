@@ -55,6 +55,12 @@ def _analyze_reactive_production(state, ctx, dish_demand_today) -> List[Alert]:
             continue
 
         to_produce = round(required - current, 2)
+        shortfall = round(required - current, 2)
+
+        message = (
+            f"Demanda do dia: {required:.2f} {item.unit}, estoque: {current:.2f}. "
+            f"Produzir {to_produce} {item.unit} imediatamente."
+        )
 
         alerts.append(Alert(
             id=f"prod_reactive_{semi_id}",
@@ -62,11 +68,17 @@ def _analyze_reactive_production(state, ctx, dish_demand_today) -> List[Alert]:
             persona=AlertPersona.KITCHEN,
             priority=AlertPriority.URGENT,
             title=f"Produzir agora – {item.name}",
-            message=f"Produzir {to_produce} {item.unit} imediatamente.",
+            message=message,
             created_at=ctx.now,
             reliability=ReliabilityLevel.HIGH,
             reliability_score=0.95,
-            data={"to_produce": to_produce},
+            data={
+                "item_id": semi_id,
+                "to_produce": to_produce,
+                "current_stock": round(current, 2),
+                "today_demand": round(required, 2),
+                "shortfall": shortfall,
+            },
         ))
 
     return alerts
@@ -95,6 +107,12 @@ def _analyze_planned_production(state, ctx) -> List[Alert]:
             continue
 
         to_produce = round(target_stock - current, 2)
+        days_of_coverage = current / forecast if forecast > 0 else 0
+
+        message = (
+            f"Estoque cobre {days_of_coverage:.1f} dias (meta: {ctx.coverage_days_target_B:.0f}). "
+            f"Produzir {to_produce} {item.unit} para o próximo ciclo."
+        )
 
         alerts.append(Alert(
             id=f"prod_plan_{item.id}",
@@ -102,11 +120,18 @@ def _analyze_planned_production(state, ctx) -> List[Alert]:
             persona=AlertPersona.KITCHEN,
             priority=AlertPriority.PLAN,
             title=f"Planejar produção – {item.name}",
-            message=f"Produzir {to_produce} {item.unit} para o próximo ciclo.",
+            message=message,
             created_at=ctx.now,
             reliability=ReliabilityLevel.MEDIUM,
             reliability_score=0.7,
-            data={"to_produce": to_produce},
+            data={
+                "item_id": item.id,
+                "to_produce": to_produce,
+                "current_stock": round(current, 2),
+                "target_stock": round(target_stock, 2),
+                "days_of_coverage": round(days_of_coverage, 1),
+                "avg_daily_demand": round(forecast, 2),
+            },
         ))
 
     return alerts

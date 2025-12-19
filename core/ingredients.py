@@ -22,6 +22,7 @@ from .models import (
 )
 from .forecast import get_item_demand_data
 from .safety import calculate_safety_stock
+from .stats import calculate_coefficient_of_variation, calculate_reliability_from_cv
 
 
 @dataclass
@@ -90,26 +91,79 @@ def analyze_ingredients(state: InventoryState, ctx: AnalysisContext) -> List[Ale
 
         target_stock = avg_demand * (avg_lt + coverage_days) + safety
 
-        n_drivers = len(drivers)
-        if n_drivers <= 1:
+        # --- MELHORIA: Reliability baseada em CV dos drivers ---
+        # Coletamos os raw_values dos drivers para calcular volatilidade agregada
+        all_driver_values = []
+        for driver_id in drivers.keys():
+            driver_stats = get_item_demand_data(state, driver_id, ctx)
+            all_driver_values.extend(driver_stats.raw_values)
+
+        if all_driver_values:
+            cv = calculate_coefficient_of_variation(all_driver_values)
+            rel_score, rel_level = calculate_reliability_from_cv(cv, len(all_driver_values))
+            reliability = ReliabilityLevel(rel_level)
+        else:
             reliability = ReliabilityLevel.LOW
             rel_score = 0.4
-        elif n_drivers <= 3:
-            reliability = ReliabilityLevel.MEDIUM
-            rel_score = 0.7
-        else:
-            reliability = ReliabilityLevel.HIGH
-            rel_score = 0.9
+
+        # Ajuste por número de drivers (mais drivers = mais confiável)
+        n_drivers = len(drivers)
+        if n_drivers >= 3:
+            rel_score = min(1.0, rel_score + 0.1)
+
+        # --- MELHORIA: Calcular pratos afetados (estimated_impact) ---
+        # Precisa seguir a cadeia: ingrediente -> semi -> prato
+        affected_dishes = _find_affected_dishes(state, ing.id)
+        estimated_impact = len(affected_dishes) if affected_dishes else None
 
         alert = _evaluate_ingredient_status(
             ctx, ing, effective_stock, risk_qty, reorder_point,
-            target_stock, safety, avg_demand, reliability, rel_score, drivers
+            target_stock, safety, avg_demand, avg_lt, coverage_days,
+            reliability, rel_score, drivers, estimated_impact
         )
 
         if alert:
             alerts.append(alert)
 
     return alerts
+
+
+def _find_affected_dishes(state: InventoryState, ingredient_id: str) -> Set[str]:
+    """
+    Encontra todos os pratos (dishes) que podem ser afetados pela falta de um ingrediente.
+    Segue a cadeia: ingrediente -> semi-acabado -> prato.
+    """
+    # Mapeia child -> list of parents
+    reverse_recipes = defaultdict(set)
+    for r in state.recipes:
+        reverse_recipes[r.child_item_id].add(r.parent_item_id)
+
+    # Identifica tipos de itens
+    item_type_map = {i.id: i.item_type for i in state.items}
+
+    affected = set()
+    visited = set()
+
+    def trace_up(item_id: str):
+        if item_id in visited:
+            return
+        visited.add(item_id)
+
+        for parent_id in reverse_recipes.get(item_id, []):
+            parent_type = item_type_map.get(parent_id)
+
+            # Se é um prato (dish_*), adiciona ao resultado
+            if parent_id.startswith("dish_"):
+                affected.add(parent_id)
+            # Se é semi-acabado, continua subindo
+            elif parent_type == ItemType.SEMI_FINISHED:
+                trace_up(parent_id)
+            # Se é finished mas não é dish, trata como prato também
+            elif parent_type == ItemType.FINISHED:
+                affected.add(parent_id)
+
+    trace_up(ingredient_id)
+    return affected
 
 
 def _explode_requirements(
@@ -186,12 +240,19 @@ def _evaluate_ingredient_status(
     target_stock: float,
     safety_stock: float,
     avg_demand: float,
+    lead_time_days: float,
+    coverage_days: float,
     reliability: ReliabilityLevel,
     rel_score: float,
     drivers: Dict[str, float],
+    estimated_impact: Optional[int],
 ) -> Optional[Alert]:
 
     now = ctx.now
+
+    # Calcular dias de cobertura
+    days_of_coverage = effective_stock / avg_demand if avg_demand > 0 else float('inf')
+    coverage_target = lead_time_days + coverage_days
 
     if avg_demand == 0 and effective_stock > 0:
         return Alert(
@@ -200,29 +261,42 @@ def _evaluate_ingredient_status(
             persona=AlertPersona.MANAGEMENT,
             priority=AlertPriority.INFO,
             title=f"Ingrediente sem giro – {item.name}",
-            message=f"Há estoque ({effective_stock:.2f}), mas nenhuma demanda prevista.",
+            message=f"Há estoque ({effective_stock:.2f} {item.unit}), mas nenhuma demanda prevista.",
             created_at=now,
             reliability=reliability,
             reliability_score=rel_score,
-            data={"drivers": drivers, "current_stock": effective_stock},
+            data={
+                "item_id": item.id,
+                "drivers": drivers,
+                "current_stock": effective_stock,
+            },
         )
 
     if avg_demand == 0:
         return None
 
+    to_buy = max(0.0, target_stock - effective_stock)
+
     if effective_stock < safety_stock:
         priority = AlertPriority.URGENT
         title = f"Crítico – {item.name}"
+        urgency_reason = "abaixo do estoque de segurança"
     elif effective_stock < reorder_point:
         priority = AlertPriority.URGENT
         title = f"Repor imediatamente – {item.name}"
+        urgency_reason = "abaixo do ponto de ressuprimento"
     elif effective_stock < target_stock:
         priority = AlertPriority.PLAN
         title = f"Planejar compra – {item.name}"
+        urgency_reason = "abaixo da meta de cobertura"
     else:
         return None
 
-    to_buy = max(0.0, target_stock - effective_stock)
+    # Mensagem melhorada com contexto
+    message = (
+        f"Estoque cobre {days_of_coverage:.1f} dias ({urgency_reason}). "
+        f"Comprar {to_buy:.2f} {item.unit} para atingir {coverage_target:.0f} dias."
+    )
 
     return Alert(
         id=f"ingredient_{item.id}",
@@ -230,15 +304,21 @@ def _evaluate_ingredient_status(
         persona=AlertPersona.PURCHASING,
         priority=priority,
         title=title,
-        message=f"Comprar {to_buy:.2f} {item.unit} para manter cobertura.",
+        message=message,
         created_at=now,
         reliability=reliability,
         reliability_score=rel_score,
+        estimated_impact=estimated_impact,
         data={
             "item_id": item.id,
             "to_buy": round(to_buy, 2),
             "current_stock": round(effective_stock, 2),
             "risk_qty": round(risk_qty, 2),
+            "days_of_coverage": round(days_of_coverage, 1),
+            "coverage_target_days": round(coverage_target, 0),
+            "avg_daily_demand": round(avg_demand, 2),
+            "safety_stock": round(safety_stock, 2),
+            "lead_time_days": lead_time_days,
             "drivers": drivers,
         },
     )

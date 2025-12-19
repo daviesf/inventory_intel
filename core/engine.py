@@ -20,6 +20,7 @@ from .forecast import get_item_demand_data
 from .safety import calculate_safety_stock
 from .ingredients import analyze_ingredients
 from .production import analyze_production
+from .stats import calculate_coefficient_of_variation, calculate_reliability_from_cv
 
 
 def analyze_inventory(
@@ -77,17 +78,26 @@ def _analyze_finished_products(
         avg = stats.avg_daily_demand
         max_d = stats.max_daily_demand
 
+        # --- MELHORIA: Reliability baseada em CV e volume de dados ---
+        cv = calculate_coefficient_of_variation(stats.raw_values)
+        rel_score, rel_level = calculate_reliability_from_cv(cv, stats.n_samples)
+
+        # Ajuste por última auditoria (mantém compatibilidade)
         if item.last_audit_date is None:
+            rel_score = min(rel_score, 0.4)
             reliability = ReliabilityLevel.LOW
-            rel_score = 0.4
         else:
-            days = (now.date() - item.last_audit_date).days
-            reliability = (
-                ReliabilityLevel.HIGH if days <= 3
-                else ReliabilityLevel.MEDIUM if days <= 15
-                else ReliabilityLevel.LOW
-            )
-            rel_score = 0.9 if reliability == ReliabilityLevel.HIGH else 0.6
+            days_since_audit = (now.date() - item.last_audit_date).days
+            if days_since_audit > 15:
+                rel_score = min(rel_score, 0.5)
+                reliability = ReliabilityLevel.LOW
+            elif days_since_audit > 3:
+                reliability = ReliabilityLevel(rel_level)
+            else:
+                reliability = ReliabilityLevel.HIGH if rel_score >= 0.8 else ReliabilityLevel(rel_level)
+
+        # --- Cálculo de dias de cobertura ---
+        days_of_coverage = current_stock / forecast if forecast > 0 else float('inf')
 
         if current_stock < 0:
             alerts.append(Alert(
@@ -96,12 +106,16 @@ def _analyze_finished_products(
                 persona=AlertPersona.MANAGEMENT,
                 priority=AlertPriority.URGENT,
                 title=f"Estoque negativo – {item.name}",
-                message=f"O estoque está negativo ({current_stock}). Ajuste o inventário.",
+                message=f"O estoque está negativo ({current_stock:.0f}). Ajuste o inventário.",
                 created_at=now,
                 reliability=reliability,
                 reliability_score=rel_score,
                 data_error=True,
-                data={"item_id": item.id, "current_stock": current_stock},
+                data={
+                    "item_id": item.id,
+                    "current_stock": current_stock,
+                    "avg_daily_demand": round(avg, 2),
+                },
             ))
             continue
 
@@ -112,11 +126,15 @@ def _analyze_finished_products(
                 persona=AlertPersona.MANAGEMENT,
                 priority=AlertPriority.INFO,
                 title=f"Produto sem giro – {item.name}",
-                message=f"Há estoque ({current_stock}), mas nenhuma demanda prevista.",
+                message=f"Há estoque ({current_stock:.0f} {item.unit}), mas nenhuma demanda prevista.",
                 created_at=now,
                 reliability=reliability,
                 reliability_score=rel_score,
-                data={"item_id": item.id, "current_stock": current_stock},
+                data={
+                    "item_id": item.id,
+                    "current_stock": current_stock,
+                    "n_samples": stats.n_samples,
+                },
             ))
             continue
 
@@ -128,7 +146,8 @@ def _analyze_finished_products(
         safety = calculate_safety_stock(max_d, avg, max_lt, avg_lt, item.item_class)
 
         reorder_point = forecast * avg_lt + safety
-        target_stock = forecast * (avg_lt + ctx.coverage_days_target_A) + safety
+        coverage_target = avg_lt + ctx.coverage_days_target_A
+        target_stock = forecast * coverage_target + safety
         to_buy = max(0.0, target_stock - current_stock)
 
         op_mode = (
@@ -137,14 +156,19 @@ def _analyze_finished_products(
             else item.operation_mode
         )
 
+        # --- MELHORIA: Mensagens com contexto de dias de cobertura ---
         if op_mode == OperationMode.DEMAND_ONLY:
+            message = (
+                f"Estoque cobre {days_of_coverage:.1f} dias (meta: {coverage_target:.0f} dias). "
+                f"Sugestão: comprar {to_buy:.0f} {item.unit}."
+            )
             alerts.append(Alert(
                 id=f"base_zero_{item.id}",
                 sphere=AlertSphere.PRODUCT,
                 persona=AlertPersona.PURCHASING,
                 priority=AlertPriority.PLAN,
                 title=f"Planejar compra (Base Zero) – {item.name}",
-                message=f"Sugestão de compra: {to_buy:.0f} {item.unit}.",
+                message=message,
                 created_at=now,
                 reliability=reliability,
                 reliability_score=rel_score,
@@ -152,6 +176,11 @@ def _analyze_finished_products(
                     "item_id": item.id,
                     "to_buy": round(to_buy, 2),
                     "target_stock": round(target_stock, 2),
+                    "days_of_coverage": round(days_of_coverage, 1),
+                    "coverage_target_days": round(coverage_target, 0),
+                    "avg_daily_demand": round(forecast, 2),
+                    "safety_stock": round(safety, 2),
+                    "lead_time_days": avg_lt,
                 },
             ))
             continue
@@ -159,11 +188,18 @@ def _analyze_finished_products(
         if current_stock < reorder_point:
             priority = AlertPriority.URGENT
             title = f"Comprar agora – {item.name}"
+            urgency_reason = "abaixo do ponto de ressuprimento"
         elif current_stock < target_stock:
             priority = AlertPriority.PLAN
             title = f"Planejar compra – {item.name}"
+            urgency_reason = "abaixo da meta de cobertura"
         else:
             continue
+
+        message = (
+            f"Estoque cobre {days_of_coverage:.1f} dias ({urgency_reason}). "
+            f"Comprar {to_buy:.0f} {item.unit} para atingir {coverage_target:.0f} dias."
+        )
 
         alerts.append(Alert(
             id=f"buy_{item.id}",
@@ -171,7 +207,7 @@ def _analyze_finished_products(
             persona=AlertPersona.PURCHASING,
             priority=priority,
             title=title,
-            message=f"Comprar {to_buy:.0f} {item.unit} para manter cobertura.",
+            message=message,
             created_at=now,
             reliability=reliability,
             reliability_score=rel_score,
@@ -181,6 +217,11 @@ def _analyze_finished_products(
                 "current_stock": current_stock,
                 "target_stock": round(target_stock, 2),
                 "reorder_point": round(reorder_point, 2),
+                "days_of_coverage": round(days_of_coverage, 1),
+                "coverage_target_days": round(coverage_target, 0),
+                "avg_daily_demand": round(forecast, 2),
+                "safety_stock": round(safety, 2),
+                "lead_time_days": avg_lt,
             },
         ))
 

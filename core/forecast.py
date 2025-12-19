@@ -33,10 +33,18 @@ class DemandStats:
     - avg_daily_demand: média diária histórica (janela bruta, após limpeza de outliers)
     - max_daily_demand: máximo diário histórico (janela bruta, após limpeza de outliers)
     - wma_forecast: previsão WMA-DOW para o dia da semana atual
+    - raw_values: valores diários brutos (após limpeza) para cálculo de CV
+    - n_samples: número de dias com dados na janela
     """
     avg_daily_demand: float
     max_daily_demand: float
     wma_forecast: float
+    raw_values: List[float] = None
+    n_samples: int = 0
+
+    def __post_init__(self):
+        if self.raw_values is None:
+            self.raw_values = []
 
 
 def _build_daily_series_for_item(
@@ -144,26 +152,27 @@ def _forecast_wma_for_weekday(
     return weighted_sum / sum_weights
 
 
-def _calculate_window_statistics(series: List[DailyAgg]) -> Tuple[float, float]:
+def _calculate_window_statistics(series: List[DailyAgg]) -> Tuple[float, float, List[float]]:
     """
-    Retorna (avg_demand, max_demand) da janela histórica bruta.
+    Retorna (avg_demand, max_demand, clean_values) da janela histórica bruta.
     Usado para cálculo de Safety Stock (volatilidade).
 
     Aqui usamos a série diária inteira (não por dia da semana) para capturar picos reais.
+    Agora também retorna os valores limpos para cálculo de CV.
     """
     if not series:
-        return 0.0, 0.0
+        return 0.0, 0.0, []
 
     values = [p.quantity for p in series]
     clean_values = _winsorize_high(values)
 
     if not clean_values:
-        return 0.0, 0.0
+        return 0.0, 0.0, []
 
     avg_val = sum(clean_values) / len(clean_values)
     max_val = max(clean_values)
 
-    return avg_val, max_val
+    return avg_val, max_val, clean_values
 
 
 def get_item_demand_data(
@@ -181,7 +190,7 @@ def get_item_demand_data(
     series = _build_daily_series_for_item(state, item_id, ctx)
 
     # 1. Estatísticas descritivas (passado)
-    avg_hist, max_hist = _calculate_window_statistics(series)
+    avg_hist, max_hist, clean_values = _calculate_window_statistics(series)
 
     # 2. Forecast WMA-DOW (futuro)
     target_weekday = ctx.now.date().weekday()
@@ -191,6 +200,8 @@ def get_item_demand_data(
         avg_daily_demand=avg_hist,
         max_daily_demand=max_hist,
         wma_forecast=wma_val,
+        raw_values=clean_values,
+        n_samples=len(series),
     )
 
 

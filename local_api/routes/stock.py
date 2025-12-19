@@ -5,7 +5,7 @@ from typing import List
 from pydantic import BaseModel
 from collections import defaultdict
 from core.repository_sqlalchemy import SqlAlchemyInventoryRepository
-from infra.orm_models import ItemORM, StockLevelORM, SaleORM, ItemType
+from infra.orm_models import ItemORM, StockLevelORM, SaleORM
 
 router = APIRouter(prefix="/stock", tags=["stock"])
 
