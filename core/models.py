@@ -29,6 +29,8 @@ class AlertSphere(str, Enum):
     INGREDIENT = "ingredient"
     PRODUCTION = "production"
     DATA_QUALITY = "data_quality"
+    PERISHABLE = "perishable"  # Legacy/Specific
+    PERISHABILITY = "perishability"  # Actions/Management Sphere 4
 
 
 class AlertPersona(str, Enum):
@@ -55,6 +57,8 @@ class Item:
     name: str
     item_type: ItemType
     unit: str
+    price: float = 0.0
+    cost: float = 0.0
     lead_time_days: float = 0.0
     shelf_life_days: Optional[float] = None
     item_class: ItemClass = ItemClass.B
@@ -84,6 +88,15 @@ class StockLevel:
     lot_id: Optional[str] = None
     expires_at: Optional[date] = None
     updated_at: Optional[datetime] = None
+
+
+@dataclass
+class StockLot:
+    """Representação canônica de um lote (Esfera 4)."""
+    lot_id: str
+    item_id: str
+    quantity: float
+    expires_at: date
 
 
 @dataclass
@@ -139,6 +152,74 @@ class InventoryState:
     stock_levels: List[StockLevel]
     sales_history: List[Sale]
     today_sales: List[Sale]
+    
+    lots: List[StockLot] = field(default_factory=list)
 
     suppressed_alerts: Dict[str, Optional[datetime]] = field(default_factory=dict)
     alert_history: Dict[str, datetime] = field(default_factory=dict)
+
+    # TEMPORAL CACHES (Loaded on demand or init)
+    dow_factors: Dict[str, Dict[int, float]] = field(default_factory=dict) # item_id -> {weekday: factor}
+    month_factors: Dict[str, Dict[int, float]] = field(default_factory=dict) # item_id -> {month: factor}
+    events: List[Event] = field(default_factory=list)
+    bridge_rules: List[BridgeRule] = field(default_factory=list)
+    payday_rules: List[PaydayRule] = field(default_factory=list)
+
+@dataclass
+class DowFactor:
+    item_id: str
+    weekday: int
+    factor: float
+    n_samples: int
+    last_updated: datetime
+
+@dataclass
+class MonthFactor:
+    item_id: str
+    month: int
+    factor: float
+    n_samples: int
+    last_updated: datetime
+
+@dataclass
+class Event:
+    id: int
+    name: str
+    date: date
+    factor: float
+    applies_to: Optional[str] = None
+    note: Optional[str] = None
+
+@dataclass
+class BridgeRule:
+    id: int
+    name: str
+    multiplier: float
+    lookback_days: int
+    enabled: bool
+
+@dataclass
+class PaydayRule:
+    id: int
+    name: str
+    day_of_month: Optional[int]
+    rule_type: str
+    multiplier: float
+    enabled: bool
+
+@dataclass
+class FactorConfidence:
+    item_id: str
+    factor_type: str
+    confidence: str
+    computed_at: datetime
+
+@dataclass
+class TemporalBreakdown:
+    item_id: str
+    base_forecast: float
+    forecast_final: float
+    total_factor: float
+    components: List[Dict[str, Any]]
+    explanation: str
+    confidence: str = "MEDIUM"

@@ -1,0 +1,239 @@
+% sections/technical_notes.tex
+% Seção 4: Informações para Integração
+
+\section{Informações para Integração}
+
+Esta seção apresenta a arquitetura do IntelliStock e orientações para
+integração por software houses.
+
+\subsection{Arquitetura do Produto}
+
+O IntelliStock é composto por módulos integrados:
+
+\begin{center}
+\begin{tabular}{l p{8cm}}
+\toprule
+\textbf{Módulo} & \textbf{Função} \\
+\midrule
+Motor de Inteligência & Análise das 4 esferas e geração de alertas \\
+API de Integração     & Interface REST para comunicação \\
+Persistência Local    & Armazenamento de dados operacionais \\
+Dashboard             & Interface web para visualização e gestão \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Fluxo de dados:}
+
+\begin{verbatim}
+    [ERP/PDV]  -->  [API de Ingestão]  -->  [Motor de Inteligência]
+                                                    |
+                                                    v
+                                              [Alertas]
+                                                    |
+                                                    v
+                                              [Dashboard]
+\end{verbatim}
+
+\subsection{API de Integração}
+
+A API REST permite integração com sistemas externos.
+
+\textbf{Endpoints de Ingestão:}
+
+\begin{itemize}[leftmargin=2em]
+  \item \texttt{POST /ingest/items} - Cadastro de itens
+  \item \texttt{POST /ingest/stock\_snapshot} - Posição de estoque
+  \item \texttt{POST /ingest/sales\_batch} - Vendas consolidadas
+  \item \texttt{POST /ingest/dishes} - Cadastro de pratos
+  \item \texttt{POST /ingest/recipes} - Receitas (BOM)
+  \item \texttt{POST /ingest/lots} - Lotes com validade
+\end{itemize}
+
+\textbf{Endpoints de Consulta:}
+
+\begin{itemize}[leftmargin=2em]
+  \item \texttt{GET /alerts} - Lista de alertas ativos
+  \item \texttt{GET /dashboard/overview} - Resumo do estado atual
+  \item \texttt{GET /health} - Status do serviço
+  \item \texttt{GET /metrics} - Métricas de análise
+\end{itemize}
+
+\textbf{Endpoints de Gestão:}
+
+\begin{itemize}[leftmargin=2em]
+  \item \texttt{GET /stock/items} - Lista de itens
+  \item \texttt{GET /stock/items/\{id\}} - Detalhes de item
+  \item \texttt{PUT /stock/items/\{id\}/count} - Atualização de contagem
+  \item \texttt{POST /stock/items/\{id\}/lots} - Adicionar lote
+\end{itemize}
+
+\textbf{Documentação interativa:} Disponível em \texttt{/docs} (Swagger UI).
+
+\subsection{Formato de Dados}
+
+Exemplos de payload para integração:
+
+\textbf{Cadastro de Item:}
+
+\begin{verbatim}
+{
+  "external_id": "SKU001",
+  "name": "Filé Mignon",
+  "type": "ingredient",
+  "unit": "kg",
+  "item_class": "A",
+  "lead_time_days": 2,
+  "shelf_life_days": 5
+}
+\end{verbatim}
+
+\textbf{Registro de Venda:}
+
+\begin{verbatim}
+{
+  "sales": [
+    {
+      "dish_code": "PRT001",
+      "quantity": 3,
+      "timestamp": "2026-01-03T12:30:00"
+    }
+  ]
+}
+\end{verbatim}
+
+\textbf{Registro de Lote:}
+
+\begin{verbatim}
+{
+  "item_id": "SKU001",
+  "lot_id": "LOTE-2026-001",
+  "quantity": 10.0,
+  "expires_at": "2026-01-10"
+}
+\end{verbatim}
+
+\subsection{Gestão FEFO}
+
+A Esfera 4 implementa gestão de validade por lote com diferentes níveis
+de confiabilidade:
+
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{Alta:} Dados de lote informados via API
+  \item \textbf{Média:} Validade informada no cadastro de estoque
+  \item \textbf{Baixa:} Estimativa baseada em shelf life do item
+\end{itemize}
+
+\subsection{Requisitos de Ambiente}
+
+\begin{center}
+\begin{tabular}{l l}
+\toprule
+\textbf{Requisito} & \textbf{Especificação} \\
+\midrule
+Memória RAM      & 512 MB (mínimo) \\
+Disco            & 100 MB + dados \\
+Sistema          & Windows, Linux, macOS \\
+Rede             & Localhost ou rede interna \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Escopo Atual do Piloto}
+
+O piloto contempla as seguintes funcionalidades:
+
+\begin{itemize}[leftmargin=2em]
+  \item Análise completa das 4 esferas
+  \item Dashboard operacional
+  \item API de integração documentada
+  \item Gestão de lotes com FEFO
+  \item Configuração de parâmetros por item
+\end{itemize}
+
+\textbf{Foco atual:}
+
+\begin{itemize}[leftmargin=2em]
+  \item Operação single-unit (uma unidade operacional)
+  \item Lead time configurado por item
+  \item Análise baseada em quantidade (sem custos financeiros)
+  \item Execução em rede local/interna
+\end{itemize}
+
+\subsection{Roteiro de Integração}
+
+Para integrar o IntelliStock com um ERP/PDV existente:
+
+\begin{enumerate}[leftmargin=2em]
+  \item Mapear itens do ERP para formato de ingestão
+  \item Criar rotina de sincronização de estoque (snapshot)
+  \item Criar rotina de importação de vendas
+  \item Configurar lead time e shelf life por item
+  \item Configurar receitas (BOM) para pratos com produção
+  \item Testar com dados reais em ambiente isolado
+  \item Validar alertas antes de uso em produção
+\end{enumerate}
+
+%----------------------------------------------------------------------
+\newpage
+\section{Planejamento e Próximas Etapas}
+
+Esta seção apresenta o roadmap de evolução do IntelliStock pós-piloto.
+
+\begin{infobox}[Visão de Produto]
+Os itens abaixo fazem parte do planejamento estratégico para as próximas
+versões do IntelliStock. Não representam funcionalidades entregues no piloto.
+\end{infobox}
+
+\subsection{Módulo de Integração (Connector)}
+
+Desenvolvimento de conectores dedicados por software house, permitindo
+integração nativa com ERPs e PDVs específicos do mercado.
+
+\textbf{Objetivo:} Simplificar a integração e reduzir esforço de
+implantação para parceiros.
+
+\subsection{Empacotamento como Executável}
+
+Distribuição do motor de inteligência como binário executável (.exe),
+eliminando dependências de ambiente de desenvolvimento.
+
+\textbf{Objetivo:} Facilitar instalação e atualização em ambientes
+de produção.
+
+\subsection{Modelo de Licenciamento}
+
+Estruturação de modelo de licenciamento local para distribuição
+comercial através de parceiros.
+
+\textbf{Objetivo:} Viabilizar comercialização e suporte através de
+software houses.
+
+\subsection{Endurecimento de Segurança}
+
+Implementação de autenticação, controle de acesso e criptografia
+para operação em ambientes de produção.
+
+\textbf{Objetivo:} Atender requisitos de segurança corporativos.
+
+\subsection{Interface Desktop}
+
+Empacotamento do dashboard como aplicativo desktop standalone,
+com experiência nativa de usuário.
+
+\textbf{Objetivo:} Oferecer experiência profissional independente
+de navegador.
+
+\subsection{Expansão Multi-Unidade}
+
+Suporte a múltiplas unidades operacionais com estoques independentes
+e visão consolidada.
+
+\textbf{Objetivo:} Atender redes e operações com mais de uma loja.
+
+\vspace{1em}
+
+\begin{infobox}[Próximos Passos]
+As evoluções listadas serão priorizadas com base no feedback do piloto
+e nas necessidades identificadas junto a parceiros de integração.
+\end{infobox}

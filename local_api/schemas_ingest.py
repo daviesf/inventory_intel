@@ -25,6 +25,13 @@ class StockLevelIn(BaseModel):
     expires_at: Optional[datetime] = None
 
 
+class StockLotIn(BaseModel):
+    item_id: str
+    lot_id: str
+    quantity: float
+    expires_at: datetime
+
+
 class StockSnapshotIn(BaseModel):
     generated_at: datetime
     levels: List[StockLevelIn]

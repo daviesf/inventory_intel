@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Literal
+from datetime import date, datetime
 from pydantic import BaseModel
 
 
@@ -22,6 +23,27 @@ class AlertData(BaseModel):
     coverage_target_days: Optional[float] = None
     required_coverage_days: Optional[float] = None
     operation_mode: Optional[str] = None
+
+
+# --- SEASONALITY / EVENTS ---
+class EventBase(BaseModel):
+    name: str
+    date: date
+    factor: float = 1.0
+    applies_to: Optional[str] = None
+    note: Optional[str] = None
+
+
+class EventCreate(EventBase):
+    pass
+
+
+class EventResponse(EventBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class AlertResponse(BaseModel):

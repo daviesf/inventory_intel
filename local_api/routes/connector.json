@@ -1,0 +1,29 @@
+{
+    "provider": "firebird",
+    "provider-version": "3.0",
+    "connector-version": "1.0",
+    "provider-user": "sysdba",
+    "provider-database": "DATABASE",
+    "provider-password": "sha512(password)",
+    "provider-host": "localhost",
+    "provider-port": "3050",
+    "column-match": [
+        {
+            "products": "PRODUTO",
+            "columns": [
+                {
+                    "id": "CODIGO"
+                },
+                {
+                    "description": "DESCRICAO"
+                },
+                {
+                    "price": "PRECO"
+                },
+                {
+                    "stock": "ESTOQUE"
+                }
+            ]
+        }
+    ]
+}

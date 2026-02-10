@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="pt-br" class="dark antialiased">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestão de Estoque | Inventory Intelligence</title>
+
+    <!-- Tailwind CSS (com suporte a dark mode) -->
+    <script src="/static/dashboard/tailwind.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: { 850: '#1e293b', 900: '#0f172a' }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 37%, #e2e8f0 63%);
+            background-size: 400% 100%;
+            animation: skeleton-loading 1.4s ease infinite;
+        }
+
+        .dark .skeleton {
+            background: linear-gradient(90deg, #1e293b 25%, #334155 37%, #1e293b 63%);
+        }
+
+        @keyframes skeleton-loading {
+            0% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0 50%;
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        .stock-row:hover {
+            background-color: rgba(59, 130, 246, 0.05);
+        }
+
+        .dark .stock-row:hover {
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+
+        .stock-row.has-change {
+            background-color: rgba(59, 130, 246, 0.08);
+        }
+
+        .dark .stock-row.has-change {
+            background-color: rgba(59, 130, 246, 0.15);
+        }
+
+        .stale-warning {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
+        }
+
+        /* Stock value editable */
+        .stock-value {
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .stock-value:hover {
+            transform: scale(1.02);
+        }
+
+        .stock-value:hover .edit-icon {
+            color: #3b82f6;
+        }
+
+        .edit-icon {
+            opacity: 0.5;
+            transition: all 0.15s;
+        }
+
+        .stock-input {
+            width: 80px;
+            text-align: center;
+            font-weight: bold;
+            border: 2px solid #3b82f6;
+            border-radius: 8px;
+            padding: 4px 8px;
+            outline: none;
+            background: white;
+        }
+
+        .dark .stock-input {
+            background: #1e293b;
+            color: white;
+        }
+
+        .stock-input:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+        }
+
+        .change-badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            width: 14px;
+            height: 14px;
+            background: #3b82f6;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            color: white;
+            font-weight: bold;
+        }
+
+        /* Slate 850 and 900 custom colors for dark mode */
+        .bg-slate-850 {
+            background-color: #1e293b;
+        }
+
+        .bg-slate-900 {
+            background-color: #0f172a;
+        }
+
+        .dark .bg-slate-900\/50 {
+            background-color: rgba(15, 23, 42, 0.5);
+        }
+
+        .dark .bg-slate-50\/50 {
+            background-color: rgba(248, 250, 252, 0.5);
+        }
+    </style>
+
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark')
+        } else {
+            document.documentElement.classList.remove('dark')
+        }
+    </script>
+</head>
+
+<body
+    class="text-gray-800 dark:text-gray-100 min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+
+    <!-- HEADER -->
+    <header
+        class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-16 flex-none z-20 shadow-sm transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
+            <div class="flex items-center gap-6">
+                <a href="/dashboard" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                    <div class="bg-blue-600 text-white p-1.5 rounded-lg shadow-sm">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z">
+                            </path>
+                        </svg>
+                    </div>
+                    <div class="leading-tight hidden sm:block">
+                        <h1 class="text-lg font-bold tracking-tight text-gray-900 dark:text-white">Inventory
+                            Intelligence</h1>
+                        <p class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Gestão de
+                            Estoque</p>
+                    </div>
+                </a>
+                <nav class="hidden md:flex items-center gap-1 ml-2">
+                    <a href="/dashboard"
+                        class="px-3 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Dashboard</a>
+                    <span
+                        class="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900 dark:bg-opacity-30 rounded-lg">Estoque</span>
+                </nav>
+            </div>
+            <div class="flex items-center gap-2 sm:gap-4">
+                <button id="mobile-menu-btn"
+                    class="md:hidden p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+                <button id="theme-toggle"
+                    class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-all">
+                    <svg id="theme-toggle-light-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z">
+                        </path>
+                    </svg>
+                    <svg id="theme-toggle-dark-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div id="mobile-menu"
+            class="hidden md:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+            <nav class="flex flex-col gap-2">
+                <a href="/dashboard"
+                    class="px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Dashboard</a>
+                <span
+                    class="px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900 dark:bg-opacity-30 rounded-lg">Estoque</span>
+            </nav>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main
+        class="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-4 sm:p-6 lg:p-8 transition-colors duration-300 pb-24">
+        <div class="max-w-7xl mx-auto space-y-6">
+
+            <!-- Page Title + Actions -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Controle de Estoque</h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Clique nos valores para editar diretamente.
+                    </p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button id="btn-export"
+                        class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900 dark:bg-opacity-30 border border-green-200 dark:border-green-800 rounded-lg hover:bg-green-100 dark:hover:bg-green-900 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                            </path>
+                        </svg>
+                        <span class="hidden sm:inline">Exportar</span> CSV
+                    </button>
+                    <button id="btn-refresh"
+                        class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                            </path>
+                        </svg>
+                        <span class="hidden sm:inline">Atualizar</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4">
+                <div class="flex flex-col md:flex-row gap-4">
+                    <div class="flex-1">
+                        <label
+                            class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1.5">Buscar</label>
+                        <div class="relative">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none"
+                                stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                            <input type="text" id="filter-search" placeholder="Nome do item..."
+                                class="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-800 dark:text-gray-200">
+                        </div>
+                    </div>
+                    <div class="w-full md:w-44">
+                        <label
+                            class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1.5">Categoria</label>
+                        <select id="filter-category"
+                            class="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg outline-none text-gray-800 dark:text-gray-200">
+                            <option value="all">Todas</option>
+                            <option value="Produto (Venda)">Produtos</option>
+                            <option value="Ingrediente">Ingredientes</option>
+                            <option value="Pré-Preparo">Pré-Preparo</option>
+                        </select>
+                    </div>
+                    <div class="w-full md:w-44">
+                        <label
+                            class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1.5">Status</label>
+                        <select id="filter-status"
+                            class="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg outline-none text-gray-800 dark:text-gray-200">
+                            <option value="all">Todos</option>
+                            <option value="stale">Desatualizado</option>
+                            <option value="low">Estoque Baixo</option>
+                            <option value="zero">Zerado</option>
+                            <option value="ok">Com Estoque</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Summary -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+                    <div class="text-xs font-bold text-gray-400 uppercase">Total</div>
+                    <div id="stat-total" class="text-xl font-bold text-gray-900 dark:text-white mt-0.5">--</div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+                    <div class="text-xs font-bold text-gray-400 uppercase">C/ Estoque</div>
+                    <div id="stat-ok" class="text-xl font-bold text-green-600 dark:text-green-400 mt-0.5">--</div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+                    <div class="text-xs font-bold text-gray-400 uppercase">Baixo</div>
+                    <div id="stat-low" class="text-xl font-bold text-yellow-600 dark:text-yellow-400 mt-0.5">--</div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+                    <div class="text-xs font-bold text-gray-400 uppercase">Zerado</div>
+                    <div id="stat-zero" class="text-xl font-bold text-red-600 dark:text-red-400 mt-0.5">--</div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+                    <div class="text-xs font-bold text-gray-400 uppercase">Desatualizado</div>
+                    <div id="stat-stale" class="text-xl font-bold text-purple-600 dark:text-purple-400 mt-0.5">--</div>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div
+                class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Item</th>
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">
+                                    Categoria</th>
+                                <th
+                                    class="px-4 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Estoque</th>
+                                <th
+                                    class="px-4 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">
+                                    Última Contagem</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stock-table-body" class="divide-y divide-gray-100 dark:divide-gray-700">
+                            <tr>
+                                <td colspan="4" class="px-6 py-8">
+                                    <div class="h-8 skeleton rounded"></div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="empty-state" class="hidden px-6 py-12 text-center">
+                    <svg class="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4">
+                        </path>
+                    </svg>
+                    <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhum item encontrado</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Floating Save Bar -->
+    <div id="save-bar"
+        class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg transform translate-y-full transition-transform duration-300 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
+                        </path>
+                    </svg>
+                </div>
+                <div>
+                    <div class="font-bold text-gray-900 dark:text-white"><span id="changes-count">0</span> alterações
+                        pendentes</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Clique em salvar para confirmar a contagem
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button id="btn-discard"
+                    class="px-4 py-2 text-sm font-bold text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors">
+                    Descartar
+                </button>
+                <button id="btn-save-all"
+                    class="px-6 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-md flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Salvar Contagem
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unsaved Changes Modal -->
+    <div id="unsaved-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden"
+        style="backdrop-filter: blur(4px);">
+        <div
+            class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="p-6">
+                <div
+                    class="w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                        </path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white text-center">Alterações não salvas</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 text-center mt-2">
+                    Você tem <strong id="modal-changes-count">0</strong> alterações pendentes. Deseja salvar antes de
+                    sair?
+                </p>
+            </div>
+            <div class="flex border-t border-gray-200 dark:border-gray-700">
+                <button id="btn-leave-without-saving"
+                    class="flex-1 px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-900 transition-colors">
+                    Sair sem salvar
+                </button>
+                <button id="btn-save-and-leave"
+                    class="flex-1 px-4 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors border-l border-gray-200 dark:border-gray-700">
+                    Salvar e sair
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"
+        class="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        (function () {
+            const STALE_DAYS = 7;
+            const LOW_STOCK_THRESHOLD = 10;
+
+            // Pencil SVG icon
+            const PENCIL_ICON = `<svg class="edit-icon w-3.5 h-3.5 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>`;
+
+            let allItems = [];
+            let pendingChanges = new Map();
+            let pendingNavigation = null;
+
+            const $ = id => document.getElementById(id);
+            const tableBody = $('stock-table-body');
+            const emptyState = $('empty-state');
+            const filterSearch = $('filter-search');
+            const filterCategory = $('filter-category');
+            const filterStatus = $('filter-status');
+            const btnRefresh = $('btn-refresh');
+            const btnExport = $('btn-export');
+            const saveBar = $('save-bar');
+            const changesCount = $('changes-count');
+            const btnDiscard = $('btn-discard');
+            const btnSaveAll = $('btn-save-all');
+            const unsavedModal = $('unsaved-modal');
+            const modalChangesCount = $('modal-changes-count');
+            const btnLeaveWithoutSaving = $('btn-leave-without-saving');
+            const btnSaveAndLeave = $('btn-save-and-leave');
+            const toastContainer = $('toast-container');
+            const mobileMenuBtn = $('mobile-menu-btn');
+            const mobileMenu = $('mobile-menu');
+
+            const statTotal = $('stat-total');
+            const statOk = $('stat-ok');
+            const statLow = $('stat-low');
+            const statZero = $('stat-zero');
+            const statStale = $('stat-stale');
+
+            // Theme
+            const themeToggle = $('theme-toggle');
+            const lightIcon = $('theme-toggle-light-icon');
+            const darkIcon = $('theme-toggle-dark-icon');
+
+            function updateThemeIcons() {
+                const isDark = document.documentElement.classList.contains('dark');
+                lightIcon.classList.toggle('hidden', !isDark);
+                darkIcon.classList.toggle('hidden', isDark);
+            }
+            updateThemeIcons();
+            themeToggle.addEventListener('click', () => {
+                document.documentElement.classList.toggle('dark');
+                localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+                updateThemeIcons();
+            });
+
+            mobileMenuBtn.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
+
+            async function fetchItems() {
+                try {
+                    const res = await fetch('/stock/items');
+                    if (!res.ok) throw new Error('Failed to fetch');
+                    allItems = await res.json();
+                    updateStats();
+                    renderTable();
+                } catch (err) {
+                    console.error('Error fetching items:', err);
+                    showToast('Erro ao carregar itens', 'error');
+                }
+            }
+
+            function updateStats() {
+                const total = allItems.length;
+                const zero = allItems.filter(i => i.current_stock === 0).length;
+                const low = allItems.filter(i => i.current_stock > 0 && i.current_stock < LOW_STOCK_THRESHOLD).length;
+                const ok = allItems.filter(i => i.current_stock >= LOW_STOCK_THRESHOLD).length;
+                const stale = allItems.filter(i => i.days_since_audit === null || i.days_since_audit >= STALE_DAYS).length;
+                statTotal.textContent = total;
+                statOk.textContent = ok;
+                statLow.textContent = low;
+                statZero.textContent = zero;
+                statStale.textContent = stale;
+            }
+
+            function getFilteredItems() {
+                const search = filterSearch.value.toLowerCase().trim();
+                const category = filterCategory.value;
+                const status = filterStatus.value;
+                return allItems.filter(item => {
+                    if (search && !item.name.toLowerCase().includes(search)) return false;
+                    if (category !== 'all' && item.category !== category) return false;
+                    if (status === 'zero' && item.current_stock !== 0) return false;
+                    if (status === 'low' && !(item.current_stock > 0 && item.current_stock < LOW_STOCK_THRESHOLD)) return false;
+                    if (status === 'ok' && item.current_stock < LOW_STOCK_THRESHOLD) return false;
+                    if (status === 'stale' && item.days_since_audit !== null && item.days_since_audit < STALE_DAYS) return false;
+                    return true;
+                });
+            }
+
+            function renderTable() {
+                const filtered = getFilteredItems();
+                if (filtered.length === 0) {
+                    tableBody.innerHTML = '';
+                    emptyState.classList.remove('hidden');
+                    return;
+                }
+                emptyState.classList.add('hidden');
+
+                tableBody.innerHTML = filtered.map(item => {
+                    const change = pendingChanges.get(item.id);
+                    const displayQty = change ? change.newQty : item.current_stock;
+                    const hasChange = !!change;
+
+                    const stockClass = displayQty === 0
+                        ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900'
+                        : displayQty < LOW_STOCK_THRESHOLD
+                            ? 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900'
+                            : 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900';
+
+                    const isStale = item.days_since_audit === null || item.days_since_audit >= STALE_DAYS;
+                    const staleClass = isStale && !hasChange ? 'stale-warning' : '';
+                    const rowClass = hasChange ? 'has-change' : '';
+
+                    const lastAudit = item.last_audit ? new Date(item.last_audit).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Nunca';
+                    const daysText = item.days_since_audit !== null ? `(${item.days_since_audit}d)` : '';
+                    const lastAuditClass = item.last_audit ? (isStale ? 'text-purple-600 dark:text-purple-400 font-medium' : 'text-gray-600 dark:text-gray-300') : 'text-gray-400 dark:text-gray-500 italic';
+
+                    return `
+                <tr class="stock-row transition-colors ${staleClass} ${rowClass}" data-item-id="${item.id}">
+                    <td class="px-4 py-3">
+                        <div class="font-semibold text-gray-900 dark:text-white">${item.name}</div>
+                        <div class="text-xs text-gray-400 sm:hidden">${item.category}</div>
+                    </td>
+                    <td class="px-4 py-3 hidden sm:table-cell">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">${item.category}</span>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <div class="inline-flex items-center justify-center relative">
+                            <span class="stock-value inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-bold cursor-pointer ${stockClass} ${hasChange ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-800' : ''}"
+                                  data-item-id="${item.id}" 
+                                  data-original="${item.current_stock}"
+                                  data-unit="${item.unit}"
+                                  data-name="${item.name}">
+                                ${displayQty} ${item.unit}
+                                ${PENCIL_ICON}
+                            </span>
+                            ${hasChange ? '<span class="change-badge">✓</span>' : ''}
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-center hidden md:table-cell">
+                        <span class="text-sm ${lastAuditClass}">${lastAudit} ${daysText}</span>
+                    </td>
+                </tr>`;
+                }).join('');
+
+                document.querySelectorAll('.stock-value').forEach(el => {
+                    el.addEventListener('click', () => startInlineEdit(el));
+                });
+            }
+
+            function startInlineEdit(el) {
+                const itemId = el.dataset.itemId;
+                const original = parseFloat(el.dataset.original);
+                const unit = el.dataset.unit;
+                const name = el.dataset.name;
+                const change = pendingChanges.get(itemId);
+                const currentVal = change ? change.newQty : original;
+
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.step = '0.01';
+                input.min = '0';
+                input.value = currentVal;
+                input.className = 'stock-input';
+                input.style.width = '100px';
+
+                el.replaceWith(input);
+                input.focus();
+                input.select();
+
+                function finishEdit(save = true) {
+                    const newVal = parseFloat(input.value);
+
+                    if (save && !isNaN(newVal) && newVal >= 0) {
+                        if (newVal !== original) {
+                            pendingChanges.set(itemId, { newQty: newVal, originalQty: original, name });
+                        } else {
+                            pendingChanges.delete(itemId);
+                        }
+                    }
+
+                    updateSaveBar();
+                    renderTable();
+                }
+
+                input.addEventListener('blur', () => finishEdit(true));
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        input.blur();
+                    }
+                    if (e.key === 'Escape') {
+                        finishEdit(false);
+                    }
+                    if (e.key === 'Tab') {
+                        e.preventDefault();
+                        input.blur();
+                        setTimeout(() => {
+                            const allValues = Array.from(document.querySelectorAll('.stock-value'));
+                            const currentRow = input.closest('tr');
+                            const currentIndex = allValues.findIndex(v => v.closest('tr') === currentRow);
+                            const next = allValues[currentIndex + (e.shiftKey ? -1 : 1)];
+                            if (next) startInlineEdit(next);
+                        }, 50);
+                    }
+                });
+            }
+
+            function updateSaveBar() {
+                const count = pendingChanges.size;
+                changesCount.textContent = count;
+                modalChangesCount.textContent = count;
+
+                if (count > 0) {
+                    saveBar.classList.remove('translate-y-full');
+                } else {
+                    saveBar.classList.add('translate-y-full');
+                }
+            }
+
+            btnDiscard.addEventListener('click', () => {
+                if (confirm('Descartar todas as alterações?')) {
+                    pendingChanges.clear();
+                    updateSaveBar();
+                    renderTable();
+                    showToast('Alterações descartadas', 'info');
+                }
+            });
+
+            async function saveAllChanges() {
+                if (pendingChanges.size === 0) return;
+
+                btnSaveAll.disabled = true;
+                btnSaveAll.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Salvando...';
+
+                try {
+                    const items = Array.from(pendingChanges.entries()).map(([item_id, data]) => ({
+                        item_id,
+                        quantity: data.newQty,
+                        note: 'Contagem via tabela inline'
+                    }));
+
+                    const res = await fetch('/stock/bulk-update', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ items })
+                    });
+
+                    if (!res.ok) throw new Error('Failed to save');
+
+                    showToast(`${pendingChanges.size} itens atualizados!`, 'success');
+                    pendingChanges.clear();
+                    updateSaveBar();
+                    await fetchItems();
+                } catch (err) {
+                    console.error('Error saving:', err);
+                    showToast('Erro ao salvar', 'error');
+                } finally {
+                    btnSaveAll.disabled = false;
+                    btnSaveAll.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Salvar Contagem';
+                }
+            }
+
+            btnSaveAll.addEventListener('click', saveAllChanges);
+
+            function showUnsavedModal(onLeave, onSave) {
+                unsavedModal.classList.remove('hidden');
+
+                btnLeaveWithoutSaving.onclick = () => {
+                    unsavedModal.classList.add('hidden');
+                    pendingChanges.clear();
+                    updateSaveBar();
+                    if (onLeave) onLeave();
+                };
+
+                btnSaveAndLeave.onclick = async () => {
+                    await saveAllChanges();
+                    unsavedModal.classList.add('hidden');
+                    if (onSave) onSave();
+                };
+            }
+
+            document.querySelectorAll('a').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    if (pendingChanges.size > 0) {
+                        e.preventDefault();
+                        const href = link.href;
+                        showUnsavedModal(
+                            () => window.location.href = href,
+                            () => window.location.href = href
+                        );
+                    }
+                });
+            });
+
+            window.addEventListener('beforeunload', (e) => {
+                if (pendingChanges.size > 0) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                    return '';
+                }
+            });
+
+            btnExport.addEventListener('click', () => {
+                window.location.href = '/stock/export';
+                showToast('Exportando CSV...', 'info');
+            });
+
+            btnRefresh.addEventListener('click', () => {
+                if (pendingChanges.size > 0) {
+                    showUnsavedModal(
+                        () => { pendingChanges.clear(); updateSaveBar(); fetchItems(); },
+                        () => fetchItems()
+                    );
+                } else {
+                    fetchItems();
+                }
+            });
+
+            function showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                const bgColor = type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
+                toast.className = `${bgColor} text-white px-4 py-2 rounded-lg shadow-lg text-sm font-medium fade-in pointer-events-auto`;
+                toast.textContent = message;
+                toastContainer.appendChild(toast);
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transition = 'opacity 0.3s';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            }
+
+            filterSearch.addEventListener('input', renderTable);
+            filterCategory.addEventListener('change', renderTable);
+            filterStatus.addEventListener('change', renderTable);
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !unsavedModal.classList.contains('hidden')) {
+                    unsavedModal.classList.add('hidden');
+                }
+            });
+
+            fetchItems();
+        })();
+    </script>
+
+</body>
+
+</html>

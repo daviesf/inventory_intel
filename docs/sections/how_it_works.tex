@@ -1,0 +1,167 @@
+% sections/how_it_works.tex
+% Seção 2: Como o Sistema Funciona
+
+\section{Como o Sistema Funciona}
+
+O IntelliStock opera através de quatro módulos de análise integrados,
+chamados \textbf{Esferas}. Cada esfera tem uma responsabilidade
+específica e gera alertas direcionados.
+
+\subsection{Arquitetura de Quatro Esferas}
+
+\begin{center}
+\begin{tabular}{>{\bfseries}l p{8cm}}
+\toprule
+Esfera & Responsabilidade \\
+\midrule
+1 - Produtos Prontos   & Analisa itens comprados e revendidos diretamente \\
+2 - Ingredientes       & Explode receitas e analisa necessidade de insumos \\
+3 - Produção           & Identifica necessidade de produção de semi-acabados \\
+4 - Perecibilidade     & Monitora riscos de vencimento e desperdício \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Esfera 1: Produtos Prontos}
+
+Analisa itens comprados e vendidos sem transformação significativa.
+Exemplos: bebidas, sobremesas industrializadas, produtos embalados.
+
+\textbf{Funcionalidades:}
+
+\begin{itemize}[leftmargin=2em]
+  \item Cálculo de demanda média com base em histórico de vendas
+  \item Determinação do ponto de reposição considerando lead time
+  \item Cálculo de estoque de segurança baseado em variabilidade
+  \item Geração de alertas de \textbf{compra urgente} ou \textbf{planejamento}
+\end{itemize}
+
+\textbf{Exemplo:}
+
+\begin{quote}
+\textit{Refrigerante X: demanda média de 50 un/dia, lead time de 2 dias,
+estoque atual de 80 unidades. Ponto de reposição = 100 + margem.
+Como 80 < 100, o sistema gera alerta de compra.}
+\end{quote}
+
+\subsection{Esfera 2: Ingredientes}
+
+Gerencia a explosão de receitas (BOM - Bill of Materials).
+Quando um prato é vendido, seus ingredientes são consumidos proporcionalmente.
+
+\textbf{Funcionalidades:}
+
+\begin{itemize}[leftmargin=2em]
+  \item Identificação de ingredientes por prato
+  \item Cálculo de demanda consolidada de cada ingrediente
+  \item Geração de alertas de compra para insumos
+\end{itemize}
+
+\textbf{Exemplo:}
+
+\begin{quote}
+\textit{Filé à Parmegiana usa 300g de filé mignon. Demanda prevista: 20 pratos/dia.
+Demanda de filé mignon: 6kg/dia. O sistema verifica estoque e lead time
+para gerar o alerta apropriado.}
+\end{quote}
+
+\subsection{Esfera 3: Produção}
+
+Analisa itens semi-acabados produzidos internamente antes do uso.
+Exemplos: molhos, massas frescas, pré-preparos.
+
+\textbf{Funcionalidades:}
+
+\begin{itemize}[leftmargin=2em]
+  \item Identificação de semi-acabados que precisam ser produzidos
+  \item Diferenciação entre produção \textbf{reativa} (vendas do dia) e
+        \textbf{planejada} (demanda futura)
+  \item Priorização de alertas reativos sobre planejados
+  \item Direcionamento de alertas para a cozinha
+\end{itemize}
+
+\textbf{Exemplo:}
+
+\begin{quote}
+\textit{Molho bolonhesa é semi-acabado. Houve consumo por 5 vendas de lasanha
+hoje. Estoque baixo. Sistema gera alerta urgente para cozinha:
+"Produzir molho bolonhesa - demanda reativa".}
+\end{quote}
+
+\subsection{Esfera 4: Perecibilidade Inteligente}
+
+Camada de supervisão que analisa risco de desperdício considerando
+validade e demanda prevista.
+
+\textbf{Funcionalidades:}
+
+\begin{itemize}[leftmargin=2em]
+  \item Identificação de lotes próximos do vencimento
+  \item Simulação de consumo usando lógica FEFO (First Expired, First Out)
+  \item Cálculo de risco de desperdício
+  \item Geração de alertas de gestão sobre riscos
+\end{itemize}
+
+\begin{infobox}[Regra de Precedência]
+A Esfera 4 \textbf{informa} sobre riscos, mas não bloqueia alertas de compra.
+A operação mantém autonomia nas decisões.
+\end{infobox}
+
+\textbf{Exemplo:}
+
+\begin{quote}
+\textit{10kg de queijo mussarela com validade em 3 dias. Demanda média: 2kg/dia.
+Consumo previsto: 6kg. Risco de desperdício: 4kg. Alerta para gestão:
+"Risco de perda de 4kg de mussarela".}
+\end{quote}
+
+\subsection{Níveis de Prioridade}
+
+O sistema classifica alertas em três níveis:
+
+\begin{center}
+\begin{tabular}{>{\bfseries}l l p{7cm}}
+\toprule
+Prioridade & Indicação & Significado \\
+\midrule
+URGENT & Vermelho & Ação imediata necessária \\
+PLAN   & Amarelo  & Atenção para os próximos dias \\
+INFO   & Azul     & Informação para acompanhamento \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Direcionamento por Responsável}
+
+Cada alerta é direcionado ao responsável apropriado:
+
+\begin{center}
+\begin{tabular}{>{\bfseries}l p{9cm}}
+\toprule
+Responsável & Escopo de Alertas \\
+\midrule
+Compras   & Compra de produtos e ingredientes \\
+Cozinha   & Produção de semi-acabados \\
+Gestão    & Perecibilidade, produtos parados, visão estratégica \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Dados Essenciais para Operação}
+
+Duas informações são fundamentais para o funcionamento do IntelliStock:
+
+\textbf{1. Histórico de Vendas}
+
+O sistema utiliza dados de vendas para calcular demanda e identificar padrões.
+Recomendação: mínimo de 30 dias de histórico.
+
+\textbf{2. Lead Time de Fornecedores}
+
+O tempo de entrega de cada fornecedor determina a antecedência necessária
+para compras. Quanto menor o lead time, menor o estoque necessário.
+
+\begin{infobox}[Configuração Inicial]
+A qualidade dos alertas depende diretamente da qualidade dos dados.
+Lead time e histórico de vendas são configurações essenciais.
+\end{infobox}

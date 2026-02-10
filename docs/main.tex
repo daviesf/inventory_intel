@@ -1,0 +1,121 @@
+% main.tex
+% IntelliStock - Documentação Oficial do Produto
+% Documento único, prático e orientado a produto
+
+\documentclass[12pt,a4paper]{article}
+
+% Encoding e idioma
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazilian]{babel}
+
+% Layout e formatação
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+% Fontes
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% Cores e links
+\usepackage{xcolor}
+\usepackage{hyperref}
+\definecolor{intelliblue}{RGB}{30,90,160}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=intelliblue,
+    urlcolor=intelliblue,
+    pdfauthor={IntelliStock},
+    pdftitle={IntelliStock - Documentação Oficial},
+    pdfsubject={Motor de Inteligência de Estoque para Restaurantes}
+}
+
+% Tabelas e listas
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{array}
+
+% Cabeçalho e rodapé
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{gray}{IntelliStock}}
+\fancyhead[R]{\small\textcolor{gray}{Documentação Oficial}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% Título customizado
+\usepackage{titling}
+\pretitle{\begin{center}\LARGE\bfseries}
+\posttitle{\end{center}\vspace{1em}}
+
+% Seções com estilo
+\usepackage{titlesec}
+\titleformat{\section}
+  {\normalfont\Large\bfseries\color{intelliblue}}
+  {\thesection}{1em}{}
+\titleformat{\subsection}
+  {\normalfont\large\bfseries}
+  {\thesubsection}{1em}{}
+
+% Boxes informativos
+\usepackage{tcolorbox}
+\tcbuselibrary{skins}
+\newtcolorbox{infobox}[1][]{
+  colback=blue!5,
+  colframe=intelliblue,
+  fonttitle=\bfseries,
+  title=#1
+}
+\newtcolorbox{warningbox}[1][]{
+  colback=orange!10,
+  colframe=orange!70!black,
+  fonttitle=\bfseries,
+  title=#1
+}
+
+% Início do documento
+\begin{document}
+
+% Capa
+\begin{titlepage}
+\centering
+\vspace*{3cm}
+
+{\Huge\bfseries IntelliStock\par}
+\vspace{0.5cm}
+{\Large Motor de Inteligência de Estoque\par}
+\vspace{2cm}
+
+{\large\textbf{Documentação Oficial do Produto}\par}
+\vspace{1cm}
+
+{\normalsize Versão 1.0\par}
+\vspace{0.5cm}
+{\normalsize Janeiro 2026\par}
+
+\vfill
+
+{\small Documento destinado a:\par}
+{\small Software Houses $\cdot$ Gestores $\cdot$ Validação de Piloto\par}
+
+\end{titlepage}
+
+% Sumário
+\tableofcontents
+\newpage
+
+% Inclusão das seções
+\input{sections/intro}
+\newpage
+
+\input{sections/how_it_works}
+\newpage
+
+\input{sections/pilot_and_usage}
+\newpage
+
+\input{sections/technical_notes}
+
+\end{document}

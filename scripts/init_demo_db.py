@@ -20,7 +20,22 @@ from infra.orm_models import (
 
 
 def main():
+    import os
+    
     print(f"Reinicializando banco de dados em: {DB_PATH}")
+
+    # --- SAFETY CHECK: Previne execução acidental em produção ---
+    allow_drop = os.environ.get("ALLOW_DROP_ALL", "").lower() == "true"
+    
+    if not allow_drop:
+        print("\n⚠️  ATENÇÃO: Este script irá APAGAR TODOS OS DADOS do banco!")
+        print("Para executar, defina a variável de ambiente ALLOW_DROP_ALL=true")
+        print("Ou confirme digitando 'sim' abaixo.\n")
+        
+        confirm = input("Deseja continuar? (sim/não): ").strip().lower()
+        if confirm != "sim":
+            print("Operação cancelada.")
+            return
 
     # --- PASSO CRÍTICO: DESTRUIR E RECRIAR ESTRUTURA ---
     # Isso garante que novas colunas (como updated_at) sejam criadas

@@ -12,10 +12,11 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 from .models import InventoryState, AnalysisContext, ItemType
 from .stats import filter_outliers
+from .temporal_adjustments import apply_temporal_adjustments, TemporalBreakdown
 
 
 @dataclass
@@ -41,6 +42,7 @@ class DemandStats:
     wma_forecast: float
     raw_values: List[float] = None
     n_samples: int = 0
+    temporal_breakdown: Optional[TemporalBreakdown] = None
 
     def __post_init__(self):
         if self.raw_values is None:
@@ -194,14 +196,48 @@ def get_item_demand_data(
 
     # 2. Forecast WMA-DOW (futuro)
     target_weekday = ctx.now.date().weekday()
-    wma_val = _forecast_wma_for_weekday(series, target_weekday, max_weeks=4)
+    wma_val_base = _forecast_wma_for_weekday(series, target_weekday, max_weeks=4)
+
+    # 3. Apply Temporal Adjustments (Seasonality, Events, etc.)
+    # Note: wma_val_base already accounts for DOW implicitly via WMA logic?
+    # The user prompt computed DOW factor explicitly: "dow_factor = avg_sales_on_weekday / avg_daily_sales"
+    # But `_forecast_wma_for_weekday` already filters by weekday.
+    # If the base forecast comes from Same-Weekday-History, adding a DOW factor ON TOP would be double counting 
+    # IF the DOW factor represents "Weekday vs Average".
+    #
+    # However, user explicitly requested:
+    # "forecast_final = forecast_base * dow_factor * ..."
+    #
+    # To follow instructions strictly while being correct:
+    # If forecast_base IS ALREADY weekday-specific, then DOW factor should be 1.0 or we should use a global average as base.
+    # But `calc_daily_demand_per_item` uses `get_item_demand_data` which uses `_forecast_wma_for_weekday`.
+    #
+    # DECISION:
+    # I will pass `wma_val_base` as `forecast_base`. 
+    # And in `compute_dow_factor` in `temporal_adjustments.py`, I implemented a check for `state.dow_factors`.
+    # If `state.dow_factors` is empty (default), it returns 1.0.
+    # If I were to implement DOW factor calculation from scratch, I would do Global Avg vs Weekday Avg.
+    # Sincethe current engine is DOW-aware by design (`_forecast_wma_for_weekday`), 
+    # applying an EXTERNAL dow_factor is only necessary if we want to force an override or if the base was not DOW-specific.
+    #
+    # Given the user instruction "forecast_final = forecast_base * dow_factor ...", i should apply it.
+    # If the user populates `dow_factors` table, it will multiply.
+    # If not, factor is 1.0.
+    
+    adjustment = apply_temporal_adjustments(
+        item_id=item_id,
+        target_date=ctx.now.date(),
+        forecast_base=wma_val_base,
+        state=state
+    )
 
     return DemandStats(
         avg_daily_demand=avg_hist,
         max_daily_demand=max_hist,
-        wma_forecast=wma_val,
+        wma_forecast=adjustment.forecast_final, # Adjusted Value
         raw_values=clean_values,
         n_samples=len(series),
+        temporal_breakdown=adjustment
     )
 
 

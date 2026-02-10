@@ -8,6 +8,8 @@ from pydantic import BaseModel
 from core import analyze_inventory
 from core.repository_sqlalchemy import SqlAlchemyInventoryRepository
 from core.serialization import alert_to_dict
+from local_api.services.day_context import get_day_context
+from local_api.services.business_translator import translate_alert
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
@@ -16,11 +18,11 @@ class SuppressRequest(BaseModel):
     action: Literal["tomorrow", "week", "forever"]
 
 
-@router.get("", response_model=List[Dict[str, Any]])
+@router.get("")
 async def get_alerts(
         ignore_stock_balance: bool = Query(False),
         include_suppressed: bool = Query(False)
-):
+) -> Dict[str, Any]:
     repo = SqlAlchemyInventoryRepository()
     state, ctx = repo.load_inventory_state()
 
@@ -33,9 +35,20 @@ async def get_alerts(
     results = []
     for a in alerts:
         d = alert_to_dict(a)
+        # Traduzir termos técnicos
+        d = translate_alert(d)
         results.append(d)
 
-    return results
+    # Enriquecer com contexto do dia
+    day_ctx = get_day_context(state, ctx.now.date())
+
+    return {
+        "context": {
+            "summary": day_ctx.summary,
+            "flags": day_ctx.flags
+        },
+        "alerts": results
+    }
 
 
 @router.post("/{alert_id}/suppress")

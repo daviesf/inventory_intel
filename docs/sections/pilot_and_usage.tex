@@ -1,0 +1,126 @@
+% sections/pilot_and_usage.tex
+% Seção 3: Validação em Piloto
+
+\section{Validação em Piloto}
+
+Esta seção orienta a execução e validação do IntelliStock em ambiente
+de piloto controlado.
+
+\subsection{Execução Local}
+
+O IntelliStock opera como uma aplicação local acessível via navegador.
+
+\textbf{Acesso à interface:}
+
+\begin{enumerate}[leftmargin=2em]
+  \item Iniciar o motor local (executável ou serviço)
+  \item Acessar o dashboard: \texttt{http://127.0.0.1:8000/dashboard}
+  \item Documentação da API: \texttt{http://127.0.0.1:8000/docs}
+\end{enumerate}
+
+\subsection{Alimentação de Dados}
+
+Para operação correta, o IntelliStock recebe dados via API de ingestão:
+
+\begin{center}
+\begin{tabular}{l p{8cm}}
+\toprule
+\textbf{Tipo de Dado} & \textbf{Descrição} \\
+\midrule
+Cadastro de Itens     & Produtos, ingredientes com lead time e validade \\
+Posição de Estoque    & Quantidades atuais por item \\
+Histórico de Vendas   & Vendas consolidadas por período \\
+Cadastro de Pratos    & Pratos do cardápio \\
+Receitas (BOM)        & Composição de ingredientes por prato \\
+Lotes                 & Quantidades com data de validade \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Interpretação de Alertas}
+
+Os alertas são exibidos no dashboard com as seguintes informações:
+
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{Origem:} Esfera que gerou o alerta
+  \item \textbf{Responsável:} Compras, Cozinha ou Gestão
+  \item \textbf{Prioridade:} Urgente, Planejamento ou Informativo
+  \item \textbf{Recomendação:} Ação sugerida
+  \item \textbf{Confiabilidade:} Nível de certeza da recomendação
+\end{itemize}
+
+\textbf{Exemplo:}
+
+\begin{quote}
+\textbf{Alerta:} "Comprar Filé Mignon - estoque abaixo do ponto de reposição" \\
+\textbf{Prioridade:} Urgente \\
+\textbf{Ação:} Contatar fornecedor hoje \\
+\textbf{Contexto:} Lead time de 2 dias, estoque atual cobre apenas 1 dia
+\end{quote}
+
+\subsection{Boas Práticas}
+
+\begin{infobox}[Recomendações para o Piloto]
+\begin{itemize}[leftmargin=1em, topsep=0pt]
+  \item Iniciar com conjunto pequeno de itens (10-20 SKUs críticos)
+  \item Garantir histórico de vendas de pelo menos 30 dias
+  \item Configurar lead time correto para cada item
+  \item Validar dados de entrada antes de analisar alertas
+  \item Comparar alertas gerados com decisões manuais
+\end{itemize}
+\end{infobox}
+
+\subsection{Critérios de Validação}
+
+Durante o piloto, observe:
+
+\begin{enumerate}[leftmargin=2em]
+  \item \textbf{Coerência:} Os alertas refletem a realidade do estoque?
+  \item \textbf{Timing:} Os alertas chegam com antecedência adequada?
+  \item \textbf{Priorização:} Itens críticos são destacados corretamente?
+  \item \textbf{Precisão:} Há alertas desnecessários ou ausências indevidas?
+\end{enumerate}
+
+\textbf{Métricas de sucesso:}
+
+\begin{itemize}[leftmargin=2em]
+  \item Redução de rupturas de estoque
+  \item Redução de desperdício por vencimento
+  \item Economia de tempo em análise manual
+  \item Confiança da equipe nas recomendações
+\end{itemize}
+
+\subsection{Orientações Importantes}
+
+\begin{itemize}[leftmargin=2em]
+  \item Valide alertas manualmente durante a fase inicial
+  \item Documente ajustes de configuração realizados
+  \item Utilize dados reais para validação representativa
+  \item Acompanhe regularmente os resultados
+\end{itemize}
+
+\subsection{Gestão de Lotes (FEFO)}
+
+O IntelliStock suporta rastreamento de validade por lote:
+
+\begin{itemize}[leftmargin=2em]
+  \item Cada lote possui quantidade e data de validade
+  \item Sistema simula consumo FEFO (First Expired, First Out)
+  \item Lotes próximos do vencimento são priorizados
+  \item Alertas de risco são gerados quando demanda é insuficiente
+\end{itemize}
+
+\begin{infobox}[Gestão de Lotes]
+A entrada de lotes registra validade de porções do estoque, permitindo
+análise precisa de risco de desperdício.
+\end{infobox}
+
+\subsection{Supressão de Alertas}
+
+Alertas já tratados podem ser suprimidos temporariamente:
+
+\begin{itemize}[leftmargin=2em]
+  \item Supressão expira automaticamente após período configurado
+  \item Alertas continuam sendo calculados, apenas não exibidos
+  \item Funcionalidade útil para reduzir ruído no dashboard
+\end{itemize}

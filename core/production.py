@@ -1,4 +1,5 @@
 # core/production.py
+# SPHERES 1–3 FROZEN: behavior consolidated and must not be altered without explicit review.
 
 from __future__ import annotations
 
@@ -6,6 +7,8 @@ from collections import defaultdict
 from typing import Dict, List
 
 from .models import (
+    InventoryState,
+    AnalysisContext,
     Alert,
     AlertPersona,
     AlertPriority,
@@ -13,44 +16,76 @@ from .models import (
     ItemType,
     ReliabilityLevel,
 )
-from .forecast import get_item_demand_data
+from .demand_cache import DemandCache
 
 
-def analyze_production(state, ctx) -> List[Alert]:
+def analyze_production(
+    state: InventoryState,
+    ctx: AnalysisContext,
+    cache: DemandCache,
+) -> List[Alert]:
+    """
+    Esfera 3: Análise de produção (semi-acabados).
+    
+    Dois modos:
+    - REATIVO: baseado nas vendas do dia (demanda real)
+    - PLANEJADO: baseado no forecast (demanda projetada)
+    
+    REGRAS CANÔNICAS:
+    - Produção tem precedência sobre compra de ingredientes
+    - Se há alerta REATIVO para um item, NÃO gerar também alerta PLANEJADO
+    - Evitar duplicação de alertas para o mesmo semi-acabado
+    """
     alerts: List[Alert] = []
 
     # -------------------------------
     # Produção REATIVA (vendas do dia)
+    # WARNING [INFRA-001]: Considera TODAS as vendas do dia (00:00-23:59).
+    # Se rodar no meio do dia, pode sugerir produção já realizada se o estoque não tiver sido baixado.
+    # Idealmente, comparar com 'Last Audit' ou 'Updated At' do estoque, mas complexo para MVP.
+    # Mantido comportamento: Required Today - Current Stock.
     # -------------------------------
     dish_today = defaultdict(float)
     for sale in state.today_sales:
         dish_today[sale.dish_id] += sale.quantity
 
-    alerts += _analyze_reactive_production(state, ctx, dish_today)
+    reactive_alerts, reactive_item_ids = _analyze_reactive_production(state, ctx, cache, dish_today)
+    alerts += reactive_alerts
 
     # -------------------------------
     # Produção PLANEJADA (forecast)
+    # Pula itens que já têm alerta reativo
     # -------------------------------
-    alerts += _analyze_planned_production(state, ctx)
+    alerts += _analyze_planned_production(state, ctx, cache, reactive_item_ids)
 
     return alerts
 
 
-def _analyze_reactive_production(state, ctx, dish_demand_today) -> List[Alert]:
+def _analyze_reactive_production(
+    state: InventoryState,
+    ctx: AnalysisContext,
+    cache: DemandCache,
+    dish_demand_today: Dict[str, float],
+) -> tuple[List[Alert], set[str]]:
+    """
+    Produção reativa: baseada nas vendas reais do dia.
+    
+    Retorna:
+    - Lista de alertas
+    - Set de item_ids que receberam alerta (para evitar duplicação)
+    """
     alerts = []
+    alerted_items: set[str] = set()
 
-    semi_demand = _explode_to_semi(state, dish_demand_today)
-    stock = defaultdict(float)
-
-    for sl in state.stock_levels:
-        stock[sl.item_id] += sl.quantity
+    semi_demand = _explode_to_semi(state, cache, dish_demand_today)
 
     for semi_id, required in semi_demand.items():
-        current = stock.get(semi_id, 0.0)
+        current = cache.get_stock(semi_id)
         if current >= required:
             continue
 
-        item = next((i for i in state.items if i.id == semi_id), None)
+        # O(1) lookup ao invés de next() O(n)
+        item = cache.get_item(semi_id)
         if not item:
             continue
 
@@ -80,28 +115,44 @@ def _analyze_reactive_production(state, ctx, dish_demand_today) -> List[Alert]:
                 "shortfall": shortfall,
             },
         ))
+        alerted_items.add(semi_id)
 
-    return alerts
+    return alerts, alerted_items
 
 
-def _analyze_planned_production(state, ctx) -> List[Alert]:
+def _analyze_planned_production(
+    state: InventoryState,
+    ctx: AnalysisContext,
+    cache: DemandCache,
+    skip_items: set[str] = None,
+) -> List[Alert]:
+    """
+    Produção planejada: baseada no forecast.
+    
+    Args:
+        skip_items: IDs de itens que já têm alerta reativo (não duplicar)
+    """
     alerts = []
-    stock = defaultdict(float)
-
-    for sl in state.stock_levels:
-        stock[sl.item_id] += sl.quantity
+    skip_items = skip_items or set()
 
     for item in state.items:
         if item.item_type != ItemType.SEMI_FINISHED:
             continue
+        
+        # FIX [BUG-003]: Removida supressão de Planejado quando existe Reativo.
+        # "Cegueira de Planejamento": Resolver uma ruptura HOJE não elimina a necessidade de mise-en-place para AMANHÃ.
+        # Os alertas devem coexistir com prioridades diferentes.
+        # if item.id in skip_items:
+        #     continue
 
-        stats = get_item_demand_data(state, item.id, ctx)
+        # Usa cache
+        stats = cache.get_demand_stats(item.id)
         forecast = stats.wma_forecast
         if forecast <= 0:
             continue
 
         target_stock = forecast * ctx.coverage_days_target_B
-        current = stock.get(item.id, 0.0)
+        current = cache.get_stock(item.id)
 
         if current >= target_stock:
             continue
@@ -137,7 +188,12 @@ def _analyze_planned_production(state, ctx) -> List[Alert]:
     return alerts
 
 
-def _explode_to_semi(state, dish_demand: Dict[str, float]) -> Dict[str, float]:
+def _explode_to_semi(
+    state: InventoryState,
+    cache: DemandCache,
+    dish_demand: Dict[str, float],
+) -> Dict[str, float]:
+    """Explode demanda de pratos para semi-acabados."""
     recipes = defaultdict(list)
     for r in state.recipes:
         recipes[r.parent_item_id].append(r)
@@ -145,7 +201,7 @@ def _explode_to_semi(state, dish_demand: Dict[str, float]) -> Dict[str, float]:
     semi_demand = defaultdict(float)
     visited = set()
 
-    def recurse(pid, qty):
+    def recurse(pid: str, qty: float) -> None:
         if pid in visited:
             return
         visited.add(pid)
@@ -153,7 +209,8 @@ def _explode_to_semi(state, dish_demand: Dict[str, float]) -> Dict[str, float]:
         for r in recipes.get(pid, []):
             child = r.child_item_id
             needed = qty * r.quantity
-            item = next((i for i in state.items if i.id == child), None)
+            # O(1) lookup
+            item = cache.get_item(child)
             if not item:
                 continue
             if item.item_type == ItemType.SEMI_FINISHED:
@@ -161,6 +218,7 @@ def _explode_to_semi(state, dish_demand: Dict[str, float]) -> Dict[str, float]:
                 recurse(child, needed)
 
     for d, q in dish_demand.items():
+        visited.clear()  # Reset per dish
         recurse(d, q)
 
     return semi_demand

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="pt-br" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Intelligence</title>
+    <script src="/static/spa_prototype/tailwind.min.js"></script>
+    <script>tailwind.config = { darkMode: 'class', theme: { extend: { colors: { slate: { 850: '#1e293b', 900: '#0f172a' } } } } }</script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+
+        .fade-enter-active,
+        .fade-leave-active {
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .fade-enter-from,
+        .fade-leave-to {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+
+        .slide-enter-active,
+        .slide-leave-active {
+            transition: all 0.3s ease;
+        }
+
+        .slide-enter-from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .slide-leave-to {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+
+        .glass {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 37%, #e2e8f0 63%);
+            background-size: 400% 100%;
+            animation: skeleton-loading 1.4s ease infinite;
+        }
+
+        .dark .skeleton {
+            background: linear-gradient(90deg, #1e293b 25%, #334155 37%, #1e293b 63%);
+            background-size: 400% 100%;
+        }
+
+        @keyframes skeleton-loading {
+            0% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0 50%;
+            }
+        }
+
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        /* Vue Transitions */
+        .fade-enter-active,
+        .fade-leave-active {
+            transition: opacity 0.2s ease;
+        }
+
+        .fade-enter-from,
+        .fade-leave-to {
+            opacity: 0;
+        }
+
+        .slide-enter-active,
+        .slide-leave-active {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        .slide-enter-from,
+        .slide-leave-to {
+            transform: translateY(100%);
+            opacity: 0;
+        }
+    </style>
+    <script>if (localStorage.theme === 'light') document.documentElement.classList.remove('dark');</script>
+</head>
+
+<body
+    class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-300">
+    <div id="app">
+        <!-- Header -->
+        <header
+            class="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-300">
+            <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <div class="flex items-center gap-6">
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z">
+                                </path>
+                            </svg>
+                        </div>
+                        <div class="hidden sm:block">
+                            <h1 class="text-lg font-bold text-slate-900 dark:text-white">Inventory Intel</h1>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 font-medium -mt-0.5">Gestão Inteligente
+                            </p>
+                        </div>
+                    </div>
+                    <nav class="hidden md:flex items-center gap-1 ml-4">
+                        <router-link v-for="route in navRoutes" :key="route.path" :to="route.path"
+                            class="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+                            :class="$route.path === route.path ? 'bg-blue-600/20 text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'">
+                            <component :is="route.icon" class="w-4 h-4" />{{ route.label }}
+                        </router-link>
+                    </nav>
+                </div>
+                <div class="flex items-center gap-3">
+                    <!-- Engine Profile -->
+                    <div v-if="$route.path === '/dashboard'"
+                        class="hidden lg:flex items-center gap-1 p-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                        <button
+                            v-for="(opt, key) in { conservative: 'Seguro', balanced: 'Equilibrado', aggressive: 'Enxuto' }"
+                            :key="key" @click="engineProfile = key; setEngineProfile()"
+                            class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all" :class="engineProfile === key 
+                                ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' 
+                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'">
+                            {{ opt }}
+                        </button>
+                        <button @click="showConfigModal = true"
+                            class="p-1.5 ml-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-white dark:hover:bg-slate-700 transition-all"
+                            title="Ajustes Avançados">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                                </path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <!-- Toggles -->
+                    <div v-if="$route.path === '/dashboard'" class="hidden md:flex items-center gap-2">
+                        <label
+                            class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                            <input type="checkbox" v-model="baseZero" class="hidden peer">
+                            <div
+                                class="w-8 h-4 bg-slate-300 dark:bg-slate-600 rounded-full peer-checked:bg-blue-600 transition-colors relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4">
+                            </div>
+                            <span class="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase">Base
+                                Zero</span>
+                        </label>
+                        <label
+                            class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                            <input type="checkbox" v-model="showIgnored" class="hidden peer">
+                            <div
+                                class="w-8 h-4 bg-slate-300 dark:bg-slate-600 rounded-full peer-checked:bg-purple-600 transition-colors relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4">
+                            </div>
+                            <span class="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase">Lixeira</span>
+                        </label>
+                    </div>
+                    <!-- Status -->
+                    <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full"
+                        :class="isOnline ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-red-500/10 border border-red-500/20'">
+                        <div class="w-2 h-2 rounded-full pulse-dot" :class="isOnline ? 'bg-emerald-400' : 'bg-red-400'">
+                        </div>
+                        <span class="text-xs font-medium" :class="isOnline ? 'text-emerald-400' : 'text-red-400'">{{
+                            isOnline ? 'Online' : 'Erro' }}</span>
+                    </div>
+                    <!-- Refresh -->
+                    <button @click="refreshData"
+                        class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                        <svg class="w-5 h-5" :class="{ 'animate-spin': isLoading }" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                            </path>
+                        </svg>
+                    </button>
+                    <!-- Theme -->
+                    <button @click="toggleTheme"
+                        class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                        <svg v-if="isDark" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z">
+                            </path>
+                        </svg>
+                        <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main -->
+        <main class="pt-20 pb-8 px-4 sm:px-6 lg:px-8 min-h-screen">
+            <div class="max-w-[1600px] mx-auto">
+                <router-view v-slot="{ Component }">
+                    <component :is="Component" :base-zero="baseZero" :show-ignored="showIgnored" :is-loading="isLoading"
+                        @refresh="refreshData" @toast="showToast" />
+                </router-view>
+            </div>
+        </main>
+
+        <!-- Config Modal -->
+        <config-modal :show="showConfigModal" :config="engineConfig" @close="showConfigModal = false" @save="saveConfig"
+            @refresh="refreshData" />
+
+        <!-- Toasts -->
+        <div class="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
+            <transition-group name="fade">
+                <div v-for="toast in toasts" :key="toast.id"
+                    class="px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 min-w-[280px]"
+                    :class="{ 'bg-emerald-500': toast.type === 'success', 'bg-red-500': toast.type === 'error', 'bg-slate-700': toast.type === 'info' }">
+                    <span class="text-sm font-medium text-white flex-1">{{ toast.message }}</span>
+                    <button v-if="toast.undo" @click="toast.undo(); removeToast(toast.id)"
+                        class="text-amber-300 hover:text-amber-200 font-bold text-xs uppercase">Desfazer</button>
+                </div>
+            </transition-group>
+        </div>
+    </div>
+
+    <script src="/static/spa_prototype/vue.min.js"></script>
+    <script src="/static/spa_prototype/vue-router.min.js"></script>
+    <script src="/static/spa_prototype/spa-app.js"></script>
+    <script src="/static/spa_prototype/spa-stock.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Wait a tick for external scripts to fully initialize
+            setTimeout(initApp, 0);
+        });
+
+        function initApp() {
+            if (!window.SpaComponents || !window.SpaComponents.DashboardView) {
+                console.error('SpaComponents not ready, retrying...');
+                setTimeout(initApp, 50);
+                return;
+            }
+
+            const { createApp, ref, reactive, onMounted } = Vue;
+            const { createRouter, createWebHistory } = VueRouter;
+            const { IconDashboard, IconStock, TaskCard, DashboardView, StockView, ConfigModal, LotModal, EventsModal, AnalysisModal } = window.SpaComponents;
+
+            const routes = [
+                { path: '/', redirect: '/dashboard' },
+                { path: '/dashboard', component: DashboardView },
+                { path: '/estoque', component: StockView }
+            ];
+            const router = createRouter({ history: createWebHistory(), routes });
+
+            const app = createApp({
+                setup() {
+                    // Initialize theme from localStorage or system preference
+                    const storedTheme = localStorage.theme;
+                    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    const initialDark = storedTheme === 'dark' || (!storedTheme && prefersDark);
+                    document.documentElement.classList.toggle('dark', initialDark);
+
+                    const isDark = ref(initialDark), baseZero = ref(false), showIgnored = ref(false), isLoading = ref(false), isOnline = ref(true);
+                    const engineProfile = ref('balanced'), engineConfig = ref(null), showConfigModal = ref(false);
+                    const toasts = ref([]);
+                    const navRoutes = [{ path: '/dashboard', label: 'Dashboard', icon: IconDashboard }, { path: '/estoque', label: 'Estoque', icon: IconStock }];
+
+                    function toggleTheme() { isDark.value = !isDark.value; document.documentElement.classList.toggle('dark', isDark.value); localStorage.theme = isDark.value ? 'dark' : 'light'; }
+                    function showToast(toast) { const id = Date.now(); toasts.value.push({ id, ...toast }); setTimeout(() => removeToast(id), 5000); }
+                    function removeToast(id) { toasts.value = toasts.value.filter(t => t.id !== id); }
+                    function refreshData() { window.dispatchEvent(new CustomEvent('refresh-dashboard')); }
+                    async function setEngineProfile() {
+                        try {
+                            await fetch('/config/engine/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ profile: engineProfile.value }) });
+                            showToast({ message: 'Perfil atualizado!', type: 'success' });
+                            // Trigger dashboard refresh
+                            window.dispatchEvent(new CustomEvent('refresh-dashboard'));
+                        }
+                        catch (err) { showToast({ message: 'Erro ao atualizar perfil', type: 'error' }); }
+                    }
+                    async function saveConfig(cfg) {
+                        try { const res = await fetch('/config/engine', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg) }); engineConfig.value = await res.json(); showConfigModal.value = false; showToast({ message: 'Configurações salvas!', type: 'success' }); }
+                        catch (err) { showToast({ message: 'Erro ao salvar', type: 'error' }); }
+                    }
+                    onMounted(async () => {
+                        try { engineConfig.value = await fetch('/config/engine').then(r => r.json()); engineProfile.value = engineConfig.value.profile || 'balanced'; } catch (err) { isOnline.value = false; }
+                        // Sync loading state with dashboard
+                        window.addEventListener('loading-start', () => isLoading.value = true);
+                        window.addEventListener('loading-end', () => isLoading.value = false);
+                    });
+
+                    return { isDark, baseZero, showIgnored, isLoading, isOnline, engineProfile, engineConfig, showConfigModal, toasts, navRoutes, toggleTheme, showToast, removeToast, refreshData, setEngineProfile, saveConfig };
+                }
+            });
+
+            app.component('IconDashboard', IconDashboard);
+            app.component('IconStock', IconStock);
+            app.component('TaskCard', TaskCard);
+            app.component('ConfigModal', ConfigModal);
+            app.component('LotModal', LotModal);
+            app.component('EventsModal', EventsModal);
+            app.component('AnalysisModal', AnalysisModal);
+            app.use(router);
+            app.mount('#app');
+        }
+    </script>
+</body>
+
+</html>

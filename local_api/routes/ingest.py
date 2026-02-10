@@ -5,13 +5,14 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from infra.db import SessionLocal
-from infra.orm_models import ItemORM, StockLevelORM, SaleORM, RecipeORM, DishORM
+from infra.orm_models import ItemORM, StockLevelORM, SaleORM, RecipeORM, DishORM, StockLotORM
 from local_api.schemas_ingest import (
     ItemIn,
     StockSnapshotIn,
     SalesBatchIn,
     DishIn,
-    RecipeIn
+    RecipeIn,
+    StockLotIn,
 )
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
@@ -134,3 +135,39 @@ async def ingest_recipes(recipes: list[RecipeIn]):
         session.commit()
 
     return {"status": "ok", "count": len(recipes)}
+
+
+@router.post("/lots")
+async def ingest_lots(lots: list[StockLotIn]):
+    """Recebe carga de lotes (ingestão automática)."""
+    with SessionLocal() as session:
+        # Opcional: Limpar lotes anteriores ou fazer append?
+        # Regra do prompt: "Alimentar state.lots". Geralmente ingest é full snapshot ou delta.
+        # Vamos assumir append/upsert simplificado. Como lot_id não é PK única global (pode repetir?),
+        # mas StockLotORM tem ID auto.
+        # Vamos limpar lotes desse item ou tudo? Prompt não especifica.
+        # "Opção A: ingest automática via connector". Connector geralmente manda tudo ou manda updates.
+        # Pela simplicidade e para evitar duplicatas infinitas, vamos assumir que é um snapshot de lotes válidos
+        # OU fazer check se já existe.
+        # Melhor abordagem segura: Ver se lote existe (item_id + lot_id) e atualizar qtd.
+        
+        for l in lots:
+            # Tentar achar lote existente
+            existing = session.query(StockLotORM).filter(
+                StockLotORM.item_id == l.item_id,
+                StockLotORM.lot_id == l.lot_id
+            ).first()
+            
+            if existing:
+                existing.quantity = l.quantity
+                existing.expires_at = l.expires_at.date() # Converte datetime do pydantic para date
+            else:
+                session.add(StockLotORM(
+                    item_id=l.item_id,
+                    lot_id=l.lot_id,
+                    quantity=l.quantity,
+                    expires_at=l.expires_at.date()
+                ))
+        session.commit()
+
+    return {"status": "ok", "count": len(lots)}

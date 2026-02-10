@@ -1,0 +1,54 @@
+INFO 2026-01-03 18:58:33,193 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 18:58:34,300 NE_RS_UNBLDRE: Unable to load application resource file /resources/resources/index.html api\debug\debug.cpp:20 davie@DAVIEPC
+ERROR 2026-01-03 18:58:44,393 NE_RS_UNBLDRE: Unable to load application resource file /resources/resources/index.html api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 18:59:32,999 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 18:59:33,613 NE_RS_UNBLDRE: Unable to load application resource file /resources/resources/index.html api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:00:08,725 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:00:09,165 NE_RS_UNBLDRE: Unable to load application resource file /resources/resources/index.html api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:04:12,362 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:04:13,009 NE_RS_UNBLDRE: Unable to load application resource file /resources/resources/index.html api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:08:24,102 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:08:25,162 NE_RS_UNBLDRE: Unable to load application resource file /resources/favicon.ico api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:08:56,178 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:08:57,111 NE_RS_UNBLDRE: Unable to load application resource file /resources/favicon.ico api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:10:22,822 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:10:23,734 NE_RS_UNBLDRE: Unable to load application resource file /resources/favicon.ico api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:10:46,465 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:10:47,789 NE_RS_UNBLDRE: Unable to load application resource file /favicon.ico api\debug\debug.cpp:20 davie@DAVIEPC
+ERROR 2026-01-03 19:10:48,051 NE_RS_UNBLDRE: Unable to load application resource file /resources/resources/config.json api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:25:24,778 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:25:25,865 NE_RS_UNBLDRE: Unable to load application resource file /.well-known/appspecific/com.chrome.devtools.json api\debug\debug.cpp:20 davie@DAVIEPC
+ERROR 2026-01-03 19:25:25,942 NE_RS_UNBLDRE: Unable to load application resource file /favicon.ico api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:26:22,866 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:26:23,952 NE_RS_UNBLDRE: Unable to load application resource file /.well-known/appspecific/com.chrome.devtools.json api\debug\debug.cpp:20 davie@DAVIEPC
+ERROR 2026-01-03 19:26:24,013 NE_RS_UNBLDRE: Unable to load application resource file /favicon.ico api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:28:10,734 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:28:11,887 NE_RS_UNBLDRE: Unable to load application resource file /.well-known/appspecific/com.chrome.devtools.json api\debug\debug.cpp:20 davie@DAVIEPC
+ERROR 2026-01-03 19:28:11,985 NE_RS_UNBLDRE: Unable to load application resource file /favicon.ico api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:28:19,455 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:28:20,487 NE_RS_UNBLDRE: Unable to load application resource file /.well-known/appspecific/com.chrome.devtools.json api\debug\debug.cpp:20 davie@DAVIEPC
+ERROR 2026-01-03 19:28:20,548 NE_RS_UNBLDRE: Unable to load application resource file /favicon.ico api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:29:35,181 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:29:36,177 NE_RS_UNBLDRE: Unable to load application resource file /.well-known/appspecific/com.chrome.devtools.json api\debug\debug.cpp:20 davie@DAVIEPC
+ERROR 2026-01-03 19:29:36,302 NE_RS_UNBLDRE: Unable to load application resource file /favicon.ico api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:30:08,343 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:30:09,085 NE_RS_UNBLDRE: Unable to load application resource file /favicon.ico api\debug\debug.cpp:20 davie@DAVIEPC
+ERROR 2026-01-03 19:30:09,310 NE_RS_UNBLDRE: Unable to load application resource file /.well-known/appspecific/com.chrome.devtools.json api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:30:56,304 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:30:57,047 NE_RS_UNBLDRE: Unable to load application resource file /favicon.ico api\debug\debug.cpp:20 davie@DAVIEPC
+ERROR 2026-01-03 19:30:57,151 NE_RS_UNBLDRE: Unable to load application resource file /.well-known/appspecific/com.chrome.devtools.json api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:32:24,840 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:32:25,703 NE_RS_UNBLDRE: Unable to load application resource file /.well-known/appspecific/com.chrome.devtools.json api\debug\debug.cpp:20 davie@DAVIEPC
+ERROR 2026-01-03 19:32:26,017 NE_RS_UNBLDRE: Unable to load application resource file /favicon.ico api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:32:57,142 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:32:57,962 NE_RS_UNBLDRE: Unable to load application resource file /favicon.ico api\debug\debug.cpp:20 davie@DAVIEPC
+ERROR 2026-01-03 19:32:58,042 NE_RS_UNBLDRE: Unable to load application resource file /.well-known/appspecific/com.chrome.devtools.json api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:33:34,991 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:33:35,837 NE_RS_UNBLDRE: Unable to load application resource file /.well-known/appspecific/com.chrome.devtools.json api\debug\debug.cpp:20 davie@DAVIEPC
+ERROR 2026-01-03 19:33:36,133 NE_RS_UNBLDRE: Unable to load application resource file /favicon.ico api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:34:06,157 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:34:07,236 NE_RS_UNBLDRE: Unable to load application resource file /favicon.ico api\debug\debug.cpp:20 davie@DAVIEPC
+ERROR 2026-01-03 19:34:07,265 NE_RS_UNBLDRE: Unable to load application resource file /.well-known/appspecific/com.chrome.devtools.json api\debug\debug.cpp:20 davie@DAVIEPC
+INFO 2026-01-03 19:35:14,906 Auth info was exported to ./.tmp/auth_info.json api\debug\debug.cpp:17 davie@DAVIEPC
+ERROR 2026-01-03 19:35:15,764 NE_RS_UNBLDRE: Unable to load application resource file /favicon.ico api\debug\debug.cpp:20 davie@DAVIEPC
+ERROR 2026-01-03 19:35:16,111 NE_RS_UNBLDRE: Unable to load application resource file /.well-known/appspecific/com.chrome.devtools.json api\debug\debug.cpp:20 davie@DAVIEPC

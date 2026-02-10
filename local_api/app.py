@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from local_api.config import settings
-from local_api.routes import health, alerts, ingest, todo, metrics, dashboard, engine_config, stock
+from local_api.routes import health, alerts, ingest, todo, metrics, dashboard, engine_config, stock, events, planning
 from local_api.schemas import ErrorResponse
 from core.errors import InventoryEngineError
 
@@ -32,6 +32,8 @@ def create_app() -> FastAPI:
     app.include_router(dashboard.router)
     app.include_router(engine_config.router)
     app.include_router(stock.router)
+    app.include_router(events.router)
+    app.include_router(planning.router)
 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 

@@ -1,10 +1,11 @@
 # core/ingredients.py
+# SPHERES 1–3 FROZEN: behavior consolidated and must not be altered without explicit review.
 
 from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import timedelta, date, datetime
+from datetime import timedelta, datetime
 from typing import Dict, List, Set, Optional
 
 from .models import (
@@ -20,9 +21,12 @@ from .models import (
     Item,
     StockLevel,
 )
-from .forecast import get_item_demand_data
+from .demand_cache import DemandCache
 from .safety import calculate_safety_stock
-from .stats import calculate_coefficient_of_variation, calculate_reliability_from_cv
+from .reliability import calculate_ingredient_reliability
+
+# Limite de profundidade para explosão de BOM (proteção contra loops)
+MAX_BOM_DEPTH = 10
 
 
 @dataclass
@@ -32,7 +36,24 @@ class IngredientDemandStats:
     drivers: Dict[str, float]  # parent_item_id -> avg demand
 
 
-def analyze_ingredients(state: InventoryState, ctx: AnalysisContext) -> List[Alert]:
+def analyze_ingredients(
+    state: InventoryState,
+    ctx: AnalysisContext,
+    cache: DemandCache,
+) -> List[Alert]:
+    """
+    Esfera 2: Análise de ingredientes (MRP).
+    
+    Responsabilidades:
+    - Explosão de BOM (receitas) para calcular demanda derivada
+    - Cálculo de estoque efetivo vs risco por lote
+    - Geração de alertas de compra para ingredientes
+    
+    REGRAS CANÔNICAS:
+    - Semi-acabados NÃO são tratados como ingredientes (são produzidos, não comprados)
+    - Ingrediente sem driver (sem prato associado) → alerta de gestão, não operacional
+    - Proteção contra loops de BOM via limite de profundidade
+    """
     alerts: List[Alert] = []
 
     parent_ids = {r.parent_item_id for r in state.recipes}
@@ -42,7 +63,8 @@ def analyze_ingredients(state: InventoryState, ctx: AnalysisContext) -> List[Ale
     parent_demand: Dict[str, IngredientDemandStats] = {}
 
     for pid in parent_ids:
-        stats = get_item_demand_data(state, pid, ctx)
+        # Usa cache O(1)
+        stats = cache.get_demand_stats(pid)
         if stats.wma_forecast <= 0 and stats.max_daily_demand <= 0:
             continue
 
@@ -52,11 +74,12 @@ def analyze_ingredients(state: InventoryState, ctx: AnalysisContext) -> List[Ale
             drivers={pid: stats.wma_forecast},
         )
 
-    ingredient_requirements = _explode_requirements(state, parent_demand)
+    ingredient_requirements = _explode_requirements(state, cache, parent_demand)
 
-    stock_map: Dict[str, List[StockLevel]] = defaultdict(list)
+    # Mapeia stock levels por item para calcular effective stock
+    stock_levels_map: Dict[str, List[StockLevel]] = defaultdict(list)
     for sl in state.stock_levels:
-        stock_map[sl.item_id].append(sl)
+        stock_levels_map[sl.item_id].append(sl)
 
     ingredients = [i for i in state.items if i.item_type == ItemType.INGREDIENT]
 
@@ -66,7 +89,7 @@ def analyze_ingredients(state: InventoryState, ctx: AnalysisContext) -> List[Ale
         max_demand = req.max_daily_demand if req else 0.0
         drivers = req.drivers if req else {}
 
-        stock_levels = stock_map.get(ing.id, [])
+        stock_levels = stock_levels_map.get(ing.id, [])
         effective_stock, risk_qty = _calculate_effective_stock(
             stock_levels, ctx, int(ctx.perishable_risk_threshold_days)
         )
@@ -91,29 +114,19 @@ def analyze_ingredients(state: InventoryState, ctx: AnalysisContext) -> List[Ale
 
         target_stock = avg_demand * (avg_lt + coverage_days) + safety
 
-        # --- MELHORIA: Reliability baseada em CV dos drivers ---
-        # Coletamos os raw_values dos drivers para calcular volatilidade agregada
+        # Reliability via módulo consolidado - usa valores dos drivers do cache
         all_driver_values = []
         for driver_id in drivers.keys():
-            driver_stats = get_item_demand_data(state, driver_id, ctx)
+            driver_stats = cache.get_demand_stats(driver_id)  # O(1)
             all_driver_values.extend(driver_stats.raw_values)
 
-        if all_driver_values:
-            cv = calculate_coefficient_of_variation(all_driver_values)
-            rel_score, rel_level = calculate_reliability_from_cv(cv, len(all_driver_values))
-            reliability = ReliabilityLevel(rel_level)
-        else:
-            reliability = ReliabilityLevel.LOW
-            rel_score = 0.4
+        rel_score, reliability = calculate_ingredient_reliability(
+            all_driver_values=all_driver_values,
+            n_drivers=len(drivers),
+        )
 
-        # Ajuste por número de drivers (mais drivers = mais confiável)
-        n_drivers = len(drivers)
-        if n_drivers >= 3:
-            rel_score = min(1.0, rel_score + 0.1)
-
-        # --- MELHORIA: Calcular pratos afetados (estimated_impact) ---
-        # Precisa seguir a cadeia: ingrediente -> semi -> prato
-        affected_dishes = _find_affected_dishes(state, ing.id)
+        # Calcular pratos afetados (estimated_impact)
+        affected_dishes = _find_affected_dishes(state, cache, ing.id)
         estimated_impact = len(affected_dishes) if affected_dishes else None
 
         alert = _evaluate_ingredient_status(
@@ -128,7 +141,11 @@ def analyze_ingredients(state: InventoryState, ctx: AnalysisContext) -> List[Ale
     return alerts
 
 
-def _find_affected_dishes(state: InventoryState, ingredient_id: str) -> Set[str]:
+def _find_affected_dishes(
+    state: InventoryState,
+    cache: DemandCache,
+    ingredient_id: str,
+) -> Set[str]:
     """
     Encontra todos os pratos (dishes) que podem ser afetados pela falta de um ingrediente.
     Segue a cadeia: ingrediente -> semi-acabado -> prato.
@@ -138,19 +155,17 @@ def _find_affected_dishes(state: InventoryState, ingredient_id: str) -> Set[str]
     for r in state.recipes:
         reverse_recipes[r.child_item_id].add(r.parent_item_id)
 
-    # Identifica tipos de itens
-    item_type_map = {i.id: i.item_type for i in state.items}
-
     affected = set()
     visited = set()
 
-    def trace_up(item_id: str):
+    def trace_up(item_id: str) -> None:
         if item_id in visited:
             return
         visited.add(item_id)
 
         for parent_id in reverse_recipes.get(item_id, []):
-            parent_type = item_type_map.get(parent_id)
+            item = cache.get_item(parent_id)  # O(1)
+            parent_type = item.item_type if item else None
 
             # Se é um prato (dish_*), adiciona ao resultado
             if parent_id.startswith("dish_"):
@@ -168,40 +183,62 @@ def _find_affected_dishes(state: InventoryState, ingredient_id: str) -> Set[str]
 
 def _explode_requirements(
     state: InventoryState,
+    cache: DemandCache,
     parent_plan: Dict[str, IngredientDemandStats],
 ) -> Dict[str, IngredientDemandStats]:
-
+    """
+    Explode demanda de pratos/produtos em necessidades de ingredientes.
+    
+    REGRAS:
+    - Semi-acabados são RECURSADOS (expandidos), não adicionados ao resultado
+    - Apenas INGREDIENTS entram no resultado final
+    - Proteção contra loops via limite de profundidade (MAX_BOM_DEPTH)
+    
+    A lógica de visited.add/discard permite que o mesmo ingrediente seja
+    alcançado por múltiplos caminhos na BOM, acumulando demanda corretamente.
+    """
     recipes_map = defaultdict(list)
     for r in state.recipes:
         recipes_map[r.parent_item_id].append(r)
-
-    item_type_map = {i.id: i.item_type for i in state.items}
 
     result: Dict[str, IngredientDemandStats] = defaultdict(
         lambda: IngredientDemandStats(0.0, 0.0, defaultdict(float))
     )
 
-    def propagate(item_id: str, avg_qty: float, max_qty: float, visited: Set[str]):
+    def propagate(item_id: str, avg_qty: float, max_qty: float, visited: Set[str], depth: int = 0) -> None:
+        # Proteção contra loops infinitos
+        if depth > MAX_BOM_DEPTH:
+            return
         if item_id in visited:
             return
 
-        visited = visited | {item_id}
+        visited.add(item_id)
 
         for r in recipes_map.get(item_id, []):
             child = r.child_item_id
             req_avg = avg_qty * r.quantity
             req_max = max_qty * r.quantity
 
-            if item_type_map.get(child) == ItemType.INGREDIENT:
+            item = cache.get_item(child)
+            if not item:
+                continue
+
+            if item.item_type == ItemType.INGREDIENT:
+                # INGREDIENTE: acumula no resultado (será comprado)
                 stats = result[child]
                 stats.avg_daily_demand += req_avg
                 stats.max_daily_demand += req_max
                 stats.drivers[item_id] += req_avg
-            elif item_type_map.get(child) == ItemType.SEMI_FINISHED:
-                propagate(child, req_avg, req_max, visited)
+            elif item.item_type == ItemType.SEMI_FINISHED:
+                # SEMI-ACABADO: recursa para encontrar ingredientes base
+                # NÃO adiciona ao resultado (será produzido, não comprado)
+                propagate(child, req_avg, req_max, visited, depth + 1)
+
+        # Remove após processar para permitir caminhos alternativos na BOM
+        visited.discard(item_id)
 
     for pid, stats in parent_plan.items():
-        propagate(pid, stats.avg_daily_demand, stats.max_daily_demand, set())
+        propagate(pid, stats.avg_daily_demand, stats.max_daily_demand, set(), 0)
 
     return result
 
